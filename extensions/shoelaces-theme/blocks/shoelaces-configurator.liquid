@@ -1,0 +1,505 @@
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+{{ 'configurator_style.css' | asset_url | stylesheet_tag }}
+{{ 'configurator_mobile.css' | asset_url | stylesheet_tag }}
+
+<div class="shoelaces-configurator-wrapper">
+  <div class="container-fluid w-100 h-100 p-0">
+    <canvas id="dubrae-config"></canvas>
+
+    <a class="navbar-brand nav-logo configurator-logo" href="{{ routes.root_url }}">
+      {{ block.settings.logo_text }}
+    </a>
+
+    <div class="icon-container d-flex gap-3">
+      <div class="d-flex flex-row gap-4">
+        <div class="tooltip-container">
+          <button id="helpBtn" type="button" aria-label="Help">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="40"
+              height="40"
+              fill="currentColor"
+              class="bi bi-question-circle"
+              viewBox="0 0 16 16"
+            >
+              <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16" />
+              <path
+                d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94" />
+            </svg>
+          </button>
+
+          <div class="tooltip-text">Help Button</div>
+        </div>
+
+        <div class="tooltip-container">
+          <button id="pdfBtn" type="button" aria-label="Download PDF">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="40"
+              height="40"
+              fill="currentColor"
+              class="bi bi-filetype-pdf"
+              viewBox="0 0 16 16"
+            >
+              <path fill-rule="evenodd"
+                d="M14 4.5V14a2 2 0 0 1-2 2h-1v-1h1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5zM1.6 11.85H0v3.999h.791v-1.342h.803q.43 0 .732-.173.305-.175.463-.474a1.4 1.4 0 0 0 .161-.677q0-.375-.158-.677a1.2 1.2 0 0 0-.46-.477q-.3-.18-.732-.179m.545 1.333a.8.8 0 0 1-.085.38.57.57 0 0 1-.238.241.8.8 0 0 1-.375.082H.788V12.48h.66q.327 0 .512.181.185.183.185.522m1.217-1.333v3.999h1.46q.602 0 .998-.237a1.45 1.45 0 0 0 .595-.689q.196-.45.196-1.084 0-.63-.196-1.075a1.43 1.43 0 0 0-.589-.68q-.396-.234-1.005-.234zm.791.645h.563q.371 0 .609.152a.9.9 0 0 1 .354.454q.118.302.118.753a2.3 2.3 0 0 1-.068.592 1.1 1.1 0 0 1-.196.422.8.8 0 0 1-.334.252 1.3 1.3 0 0 1-.483.082h-.563zm3.743 1.763v1.591h-.79V11.85h2.548v.653H7.896v1.117h1.606v.638z" />
+            </svg>
+          </button>
+
+          <div class="tooltip-text">Download in PDF form</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="helpModal" class="help-modal">
+      <div class="help-modal-overlay"></div>
+
+      <div class="help-modal-content">
+        <button id="closeHelpModal" type="button" class="help-modal-close" aria-label="Close help modal">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="40"
+            height="40"
+            fill="currentColor"
+            class="bi bi-x-circle"
+            viewBox="0 0 16 16"
+          >
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16" />
+            <path
+              d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708" />
+          </svg>
+        </button>
+
+        <div class="help-modal-left">
+          <img
+            src="{{ block.settings.help_image | image_url: width: 900 }}"
+            alt="Customer support"
+            width=""
+            height=""
+          >
+        </div>
+
+        <div class="help-modal-right">
+          {%- form 'contact', id: 'ContactForm' -%}
+            {%- if form.posted_successfully? -%}
+              <p class="form-success">Thanks! We'll get back to you soon.</p>
+            {%- endif -%}
+
+            {%- if form.errors -%}
+              <p class="form-error">{{ form.errors | default_errors }}</p>
+            {%- endif -%}
+
+            <h2 class="send-message mb-4">Design not fitting?</h2>
+            <p>We’re here to help. Fill out the form below and our team will get back to you shortly.</p>
+
+            <div class="d-flex flex-row gap-4 mb-4">
+              <input
+                type="text"
+                class="form-control"
+                name="contact[name]"
+                placeholder="Enter your full name"
+              >
+
+              <input
+                type="email"
+                class="form-control"
+                name="contact[email]"
+                placeholder="Enter your email"
+                required
+              >
+            </div>
+
+            <div class="mb-4">
+              <input
+                type="tel"
+                class="form-control"
+                name="contact[phone]"
+                placeholder="Enter your phone number"
+              >
+            </div>
+
+            <div class="mb-4">
+              <textarea
+                class="form-control"
+                rows="3"
+                name="contact[body]"
+                placeholder="Enter your message"
+              ></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-custom rounded bg-dark text-white form-button py-3 mt-3">
+              Send Message
+            </button>
+          {%- endform -%}
+        </div>
+      </div>
+    </div>
+
+    <div class="directional-button d-flex gap-3">
+      <img
+        class="directional-img"
+        src="{{ 'arrows.png' | asset_url }}"
+        alt="360 Directional Arrow Button"
+        width=""
+        height=""
+      >
+
+      <div class="directional-tooltip">View Front / Back</div>
+    </div>
+
+    <div id="viewSideIndicator" class="view-side-indicator" aria-live="polite">Editing Front Side</div>
+  </div>
+
+  <div class="options-tab active">
+    <div class="container p-0 h-100">
+      <div class="d-flex h-100 gap-4 flex-column justify-content-between">
+        <div class="accordion w-100" id="productOptionsAccordion">
+          <div id="dubraesOnly">
+            <div class="accordion-item custom-shadow mb-3">
+              <h2 class="accordion-header" id="headingModel">
+                <button
+                  class="accordion-button collapsed py-4 px-4"
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#collapseModel"
+                  aria-expanded="false"
+                  aria-controls="collapseModel"
+                >
+                  <h4 class="mb-0">Select Your Model</h4>
+                </button>
+              </h2>
+
+              <div id="collapseModel" class="accordion-collapse collapse" aria-labelledby="headingModel">
+                <div class="accordion-body px-4 pb-4 gap-4 d-flex flex-column justify-content-center">
+                  <div class="color-options d-flex gap-1">
+                    <button
+                      class="small-dubrae model-btn btn btn-outline-dark option-btn active"
+                      type="button"
+                      data-model="small"
+                    >
+                      Flat Shoelaces
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion-item custom-shadow mb-3">
+              <h2 class="accordion-header" id="headingColors">
+                <button
+                  class="accordion-button collapsed py-4 px-4"
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#collapseColors"
+                  aria-expanded="false"
+                  aria-controls="collapseColors"
+                >
+                  <h4 class="mb-0">Choose Your Color</h4>
+                </button>
+              </h2>
+
+              <div id="collapseColors" class="accordion-collapse collapse" aria-labelledby="headingColors">
+                <div class="accordion-body px-4 pb-4 gap-2 d-flex flex-column justify-content-center">
+                  <div>
+                    <label for="shoelace-color" class="fw-bold py-2"> Apply To: </label>
+
+                    <div class="color-target-group d-flex gap-2 flex-wrap mb-3">
+                      <button type="button" class="color-target-btn btn btn-dark btn-sm" data-target="all">All</button>
+
+                      <button type="button" class="color-target-btn btn btn-outline-dark btn-sm" data-target="model">
+                        Laces
+                      </button>
+
+                      <button type="button" class="color-target-btn btn btn-outline-dark btn-sm" data-target="text">
+                        Text
+                      </button>
+
+                      <button type="button" class="color-target-btn btn btn-outline-dark btn-sm" data-target="emoji">
+                        Emoji
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label for="shoelace-color" class="fw-bold py-2"> Color: </label>
+
+                    <div class="color-container">
+                      <button
+                        class="rounded-3 color-btn"
+                        type="button"
+                        data-color="#ff0000"
+                        style="background:#ff0000;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="bottom"
+                        title="Red"
+                        data-title="Red"
+                      ></button>
+                      <button
+                        class="rounded-3 color-btn"
+                        type="button"
+                        data-color="#00ff00"
+                        style="background:#00ff00;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="bottom"
+                        title="Green"
+                        data-title="Green"
+                      ></button>
+                      <button
+                        class="rounded-3 color-btn"
+                        type="button"
+                        data-color="#0000ff"
+                        style="background:#0000ff;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="bottom"
+                        title="Blue"
+                        data-title="Blue"
+                      ></button>
+                      <button
+                        class="rounded-3 color-btn"
+                        type="button"
+                        data-color="#ffff00"
+                        style="background:#ffff00;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="bottom"
+                        title="Yellow"
+                        data-title="Yellow"
+                      ></button>
+                      <button
+                        class="rounded-3 color-btn"
+                        type="button"
+                        data-color="#ff00ff"
+                        style="background:#ff00ff;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="bottom"
+                        title="Pink"
+                        data-title="Pink"
+                      ></button>
+                      <button
+                        class="rounded-3 color-btn"
+                        type="button"
+                        data-color="#00ffff"
+                        style="background:#00ffff;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="bottom"
+                        title="Teal"
+                        data-title="Teal"
+                      ></button>
+                      <button
+                        class="rounded-3 color-btn"
+                        type="button"
+                        data-color="#ffffff"
+                        style="background:#ffffff;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="bottom"
+                        title="White"
+                        data-title="White"
+                      ></button>
+                      <button
+                        class="rounded-3 color-btn"
+                        type="button"
+                        data-color="#000000"
+                        style="background:#000000;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="bottom"
+                        title="Black"
+                        data-title="Black"
+                      ></button>
+                      <button
+                        class="rounded-3 color-btn"
+                        type="button"
+                        data-color="#888888"
+                        style="background:#888888;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="bottom"
+                        title="Gray"
+                        data-title="Gray"
+                      ></button>
+                      <button
+                        class="rounded-3 color-btn"
+                        type="button"
+                        data-color="#ffa500"
+                        style="background:#ffa500;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="bottom"
+                        title="Gold"
+                        data-title="Gold"
+                      ></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion-item custom-shadow mb-3">
+              <h2 class="accordion-header" id="headingPersonalization">
+                <button
+                  class="accordion-button collapsed py-4 px-4"
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#collapsePersonalization"
+                  aria-expanded="false"
+                  aria-controls="collapsePersonalization"
+                >
+                  <h4 class="mb-0">Personalization Text</h4>
+                </button>
+              </h2>
+
+              <div
+                id="collapsePersonalization"
+                class="accordion-collapse collapse"
+                aria-labelledby="headingPersonalization"
+              >
+                <div class="accordion-body px-4 pb-4 d-flex flex-column gap-4">
+                  <div class="d-flex flex-column">
+                    <label for="shoelace-text" class="fw-bold py-2"> Add Text For Front Laces: </label>
+
+                    <input id="shoelace-text" type="text" class="form-control uppercase-input">
+                  </div>
+
+                  <div class="d-flex flex-column">
+                    <label for="shoelace-text-back" class="fw-bold py-2"> Add Text For Back Laces: </label>
+
+                    <input id="shoelace-text-back" type="text" class="form-control uppercase-input">
+                  </div>
+
+                  <div class="d-flex flex-column">
+                    <label for="shoelace-emoji" class="fw-bold py-2"> Add Emoji: </label>
+
+                    <div class="emoji-options" id="shoelace-emoji">
+                      <button
+                        type="button"
+                        class="emoji-btn"
+                        data-icon="heart"
+                        data-marker="♥"
+                        data-svg="{{ 'heart.svg' | asset_url }}"
+                      >
+                        <img src="{{ 'heart.svg' | asset_url }}" alt="Heart icon" width="" height="">
+                      </button>
+
+                      <button
+                        type="button"
+                        class="emoji-btn"
+                        data-icon="clover"
+                        data-marker="☘"
+                        data-svg="{{ 'clover.svg' | asset_url }}"
+                      >
+                        <img src="{{ 'clover.svg' | asset_url }}" alt="Clover icon" width="" height="">
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="price pb-4">
+          <h3 class="d-flex justify-content-between">
+            <span>Estimated Total: </span>
+            <span id="price-tag">$5.00</span>
+          </h3>
+
+          <p class="mb-4">Taxes, discounts and shipping calculated at checkout.</p>
+
+          <div class="d-flex gap-3">
+            <button
+              class="btn btn-outline-dark option-btn btn-active w-100 py-3"
+              id="position-btn"
+              type="button"
+            >
+              Summary
+            </button>
+
+            <button
+              class="btn btn-outline-dark option-btn btn-active w-100 py-3"
+              id="addToCart"
+              type="button"
+            >
+              Add To Cart
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex w-100 h-100 position-absolute z-3" id="addToCartStatus">
+    <div class="border rounded addToCartStatus-container bg-white text-center p-5 position-fixed top-50 start-50 late-middle">
+      <h3 id="cartStatusTitle">Item added to your cart!</h3>
+      <h3 id="cartStatusMessage">You can continue shopping or checkout.</h3>
+    </div>
+  </div>
+</div>
+
+<script id="configurator-data" type="application/json">
+  {
+    "models": {
+      "small": "https://cdn.shopify.com/3d/models/0c332ce96aada3b2/test2.glb",
+      "medium": "https://cdn.shopify.com/3d/models/6ee0ab8c088d338d/medium.glb",
+      "shoe": "https://cdn.shopify.com/3d/models/cd7b48396f576b17/airforce1_noLogo_1.glb"
+    },
+    "assets": {
+      "arrows": {{ 'arrows.png' | asset_url | json }},
+      "heart": {{ 'heart.svg' | asset_url | json }},
+      "clover": {{ 'clover.svg' | asset_url | json }}
+    }
+  }
+</script>
+
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+<script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js" defer></script>
+
+<script type="module">
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { TrackballControls } from "three/addons/controls/TrackballControls.js";
+    import { FontLoader } from "three/addons/loaders/FontLoader.js";
+    import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
+    import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
+
+    window.THREE = THREE;
+    window.GLTFLoader = GLTFLoader;
+    window.OrbitControls = OrbitControls;
+    window.TrackballControls = TrackballControls;
+    window.FontLoader = FontLoader;
+    window.TextGeometry = TextGeometry;
+    window.SVGLoader = SVGLoader;
+    window.SVGLoaderCreateShapes = SVGLoader.createShapes;
+
+  await import({{ 'shoelace-text.js' | asset_url | json }});
+  await import({{ 'script.js' | asset_url | json }});
+  await import({{ 'controller.js' | asset_url | json }});
+  await import({{ 'draganddrop.js' | asset_url | json }});
+</script>
+
+{% schema %}
+{
+  "name": "Shoelaces Configurator",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "logo_text",
+      "label": "Logo text",
+      "default": "Shoelaces"
+    },
+    {
+      "type": "image_picker",
+      "id": "help_image",
+      "label": "Help modal image"
+    }
+  ]
+}
+{% endschema %}
