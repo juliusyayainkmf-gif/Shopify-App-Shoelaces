@@ -1,0 +1,48 @@
+@media screen and (max-width: 992px) {
+    .options-tab {
+        height: 50dvh;
+        max-width: 100%;
+        top: 50%;
+    }
+
+    .directional-button {
+        bottom: 47%;
+        transform: translateX(-50%);
+    }
+
+    .view-side-indicator {
+        top: 20px;
+        min-width: 100px;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        transform: translateX(-50%);
+    }
+}
+
+@media screen and (max-height: 430px) and (orientation: landscape) {
+    .options-tab {
+        height: 50dvh;
+        max-width: 100%;
+        top: 50%;
+    }
+
+    .view-side-indicator {
+        top: 20px;
+        min-width: 100px;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        transform: translateX(-50%);
+    }
+
+    .directional-button {
+        bottom: 40%;
+        transform: translateX(-50%);
+    }
+}
+
+@media screen and (max-width: 430px) {
+    .options-tab {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+}

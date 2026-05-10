@@ -2,6 +2,13 @@ const config = JSON.parse(
   document.getElementById("configurator-data").textContent,
 );
 
+const VARIANT_ID_WITH_CUSTOMIZATION =
+  window.SHOELACE_CONFIG && window.SHOELACE_CONFIG.variantId
+    ? Number(window.SHOELACE_CONFIG.variantId)
+    : null;
+
+console.log(VARIANT_ID_WITH_CUSTOMIZATION);
+
 window.ShoelaceApp = {
   canvas: null,
   scene: null,
@@ -65,6 +72,45 @@ window.ShoelaceApp = {
     shoe: config.models.shoe,
   },
 
+  modelLoading: {
+    total: 0,
+    loaded: 0,
+  },
+
+  showLoader() {
+    const loader = document.getElementById("loader");
+
+    if (!loader) return;
+
+    loader.style.display = "flex";
+    loader.classList.remove("hiddens");
+  },
+
+  hideLoader() {
+    const loader = document.getElementById("loader");
+
+    if (!loader) return;
+
+    loader.classList.add("hiddens");
+
+    setTimeout(() => {
+      loader.style.display = "none";
+    }, 400);
+  },
+
+  markModelLoaded(key) {
+    this.modelLoading.loaded += 1;
+
+    console.log(
+      `Model loaded ${this.modelLoading.loaded}/${this.modelLoading.total}:`,
+      key,
+    );
+
+    if (this.modelLoading.loaded >= this.modelLoading.total) {
+      this.hideLoader();
+    }
+  },
+
   init() {
     // 1. Get the config safely
     const configElement = document.getElementById("configurator-data");
@@ -89,8 +135,7 @@ window.ShoelaceApp = {
       shoe: this.config.models.shoe,
     };
 
-    // 3. Run the rest
-    this.loader = new GLTFLoader();
+    this.loader = new window.GLTFLoader();
     this.setupScene();
     this.setupLights();
     this.setupFloor();
@@ -102,6 +147,36 @@ window.ShoelaceApp = {
     this.updateTextInputAvailability();
     this.preloadIcons();
     this.animate();
+  },
+
+  loadingScreen() {
+    const loaderEl = document.getElementById("loader");
+
+    this.loadingManager = new THREE.LoadingManager();
+
+    this.loadingManager.onStart = () => {
+      if (loaderEl) {
+        loaderEl.style.display = "flex";
+        loaderEl.classList.remove("hiddens");
+      }
+    };
+
+    this.loadingManager.onLoad = () => {
+      if (!loaderEl) return;
+
+      loaderEl.classList.add("hiddens");
+
+      setTimeout(() => {
+        loaderEl.style.display = "none";
+      }, 400);
+    };
+
+    this.loadingManager.onError = (url) => {
+      console.error("Error loading:", url);
+    };
+
+    this.loader = new window.GLTFLoader(this.loadingManager);
+    this.fontLoader = new window.FontLoader(this.loadingManager);
   },
 
   setupScene() {
@@ -346,6 +421,19 @@ window.ShoelaceApp = {
   loadModel() {
     this.shoelaces = [];
 
+    const modelEntries = Object.entries(this.models || {}).filter(
+      ([key, modelPath]) => Boolean(modelPath),
+    );
+
+    this.modelLoading.total = modelEntries.length;
+    this.modelLoading.loaded = 0;
+    this.showLoader();
+
+    if (!modelEntries.length) {
+      this.hideLoader();
+      return;
+    }
+
     const isShoelaceFabric = (name) => {
       return name === "Plane.001" || name === "Plane.002";
     };
@@ -359,102 +447,113 @@ window.ShoelaceApp = {
       return mat;
     };
 
-    Object.entries(this.models).forEach(([key, modelPath]) => {
+    modelEntries.forEach(([key, modelPath]) => {
       console.log("Loading model:", key, modelPath);
 
-      this.loader.load(modelPath, (gltf) => {
-        console.log("Loaded model:", key, gltf);
-        const model = gltf.scene;
+      this.loader.load(
+        modelPath,
+        (gltf) => {
+          console.log("Loaded model:", key, gltf);
 
-        model.traverse((child) => {
-          if (!child.isMesh) return;
+          const model = gltf.scene;
 
-          const isLace = child.name.toLowerCase().includes("shoelace");
+          model.traverse((child) => {
+            if (!child.isMesh) return;
 
-          const materials = Array.isArray(child.material)
-            ? child.material
-            : [child.material];
+            const isLace = child.name.toLowerCase().includes("shoelace");
 
-          materials.forEach((mat) => {
-            if (!mat) return;
+            const materials = Array.isArray(child.material)
+              ? child.material
+              : [child.material];
 
-            mat.side = THREE.DoubleSide;
+            materials.forEach((mat) => {
+              if (!mat) return;
 
-            if (isShoelaceFabric(mat.name)) {
-              mat.color.set(0xf0f0f0);
+              mat.side = THREE.DoubleSide;
+
+              if (isShoelaceFabric(mat.name)) {
+                mat.color.set(0xf0f0f0);
+              }
+
+              if (mat.normalMap) {
+                mat.normalScale.set(0.5, 0.5);
+              }
+
+              mat.needsUpdate = true;
+            });
+
+            if (isLace) {
+              this.shoelaces.push(child);
+
+              const name = child.name.toLowerCase();
+
+              if (name === "shoelace_1" || name === "shoelace_2") {
+                this.textTargetLaces.push(child);
+              }
             }
 
-            if (mat.normalMap) {
-              mat.normalScale.set(0.5, 0.5);
-            }
-
-            mat.needsUpdate = true;
+            child.castShadow = true;
+            child.receiveShadow = true;
           });
 
-          if (isLace) {
-            this.shoelaces.push(child);
+          this.scene.add(model);
 
-            const name = child.name.toLowerCase();
+          if (key === "shoelace") {
+            this.model = model;
 
-            if (name === "shoelace_1" || name === "shoelace_2") {
-              this.textTargetLaces.push(child);
-            }
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+
+            this.setupPDFCameras(center);
+
+            this.controls.target.copy(center);
+
+            // FRONT / DEFAULT VIEW
+            this.camera.position.set(center.x, center.y, center.z + 9);
+            this.camera.lookAt(center);
+            this.controls.update();
+
+            this.cameraStates.default = {
+              position: this.camera.position.clone(),
+              target: center.clone(),
+            };
+
+            // BACK VIEW
+            this.cameraStates.back = {
+              position: new THREE.Vector3(center.x, center.y, center.z - 9),
+              target: center.clone(),
+            };
+
+            // Start locked to front side only
+            this.setCameraDragLimits("front");
+
+            ShoelaceText.updateShoelaceText(
+              this,
+              this.frontTextValue || "",
+              "front",
+            );
+            ShoelaceText.updateShoelaceText(
+              this,
+              this.backTextValue || "",
+              "back",
+            );
           }
 
-          child.castShadow = true;
-          child.receiveShadow = true;
-        });
+          if (key === "shoe") {
+            model.position.set(50, 0, 0);
+            model.rotation.y = 7.5;
+            this.shoe = model;
+            this.shoe.visible = false;
+          }
 
-        this.scene.add(model);
-
-        if (key === "shoelace") {
-          this.model = model;
-
-          const box = new THREE.Box3().setFromObject(model);
-          const center = box.getCenter(new THREE.Vector3());
-
-          this.setupPDFCameras(center);
-
-          this.controls.target.copy(center);
-
-          // FRONT / DEFAULT VIEW
-          this.camera.position.set(center.x, center.y, center.z + 9);
-          this.camera.lookAt(center);
-          this.controls.update();
-
-          this.cameraStates.default = {
-            position: this.camera.position.clone(),
-            target: center.clone(),
-          };
-
-          // BACK VIEW
-          this.cameraStates.back = {
-            position: new THREE.Vector3(center.x, center.y, center.z - 9),
-            target: center.clone(),
-          };
-
-          // Start locked to front side only
-          this.setCameraDragLimits("front");
-
-          ShoelaceText.updateShoelaceText(
-            this,
-            this.frontTextValue || "",
-            "front",
-          );
-          ShoelaceText.updateShoelaceText(
-            this,
-            this.backTextValue || "",
-            "back",
-          );
-        }
-
-        if (key === "shoe") {
-          model.position.set(50, 0, 0);
-          model.rotation.y = 7.5;
-          this.shoe = model;
-          this.shoe.visible = false;
-        }
-      });
+          this.markModelLoaded(key);
+        },
+        undefined,
+        (error) => {
+          console.error("Failed to load model:", key, modelPath, error);
+          this.markModelLoaded(`${key} failed`);
+        },
+      );
     });
   },
 
@@ -814,12 +913,12 @@ window.ShoelaceApp = {
       ["Main Color", this.activeColor || "N/a"],
 
       ["Front Text", this.frontTextValue || "N/a"],
-      ["Front Text Color", this.frontTextColorName || "N/a"],
-      ["Front Emoji Color", this.frontEmojiColorName || "N/a"],
+      ["Front Text Color", this.getTextColorSummary("front")],
+      ["Front Emoji Color", this.getEmojiColorSummary("front")],
 
       ["Back Text", this.backTextValue || "N/a"],
-      ["Back Text Color", this.backTextColorName || "N/a"],
-      ["Back Emoji Color", this.backEmojiColorName || "N/a"],
+      ["Back Text Color", this.getTextColorSummary("back")],
+      ["Back Emoji Color", this.getEmojiColorSummary("back")],
     ];
 
     data.forEach(([label, value]) => {
@@ -904,6 +1003,50 @@ window.ShoelaceApp = {
     return String(str).charAt(0).toUpperCase() + String(str).slice(1);
   },
 
+  getSideTextValue(side) {
+    return side === "back" ? this.backTextValue || "" : this.frontTextValue || "";
+  },
+
+  sideHasPersonalization(side) {
+    return this.getSideTextValue(side).trim().length > 0;
+  },
+
+  sideHasEmoji(side) {
+    const value = this.getSideTextValue(side);
+
+    return Object.values(this.iconRegistry || {}).some((icon) => {
+      return icon.marker && value.includes(icon.marker);
+    });
+  },
+
+  sideHasTypedText(side) {
+    let value = this.getSideTextValue(side);
+
+    Object.values(this.iconRegistry || {}).forEach((icon) => {
+      if (icon.marker) {
+        value = value.replaceAll(icon.marker, "");
+      }
+    });
+
+    return value.trim().length > 0;
+  },
+
+  getTextColorSummary(side) {
+    if (!this.sideHasTypedText(side)) return "N/a";
+
+    return side === "back"
+      ? this.backTextColorName || "N/a"
+      : this.frontTextColorName || "N/a";
+  },
+
+  getEmojiColorSummary(side) {
+    if (!this.sideHasEmoji(side)) return "N/a";
+
+    return side === "back"
+      ? this.backEmojiColorName || "N/a"
+      : this.frontEmojiColorName || "N/a";
+  },
+
   downloadPDF(pdfBytes) {
     const blob = new Blob([pdfBytes], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
@@ -917,6 +1060,29 @@ window.ShoelaceApp = {
     document.body.removeChild(link);
 
     URL.revokeObjectURL(url);
+  },
+
+  async uploadPDF(pdfBytes, configId) {
+    const uploadUrl =
+      window.SHOELACE_CONFIG?.uploadPdfUrl || "/apps/shoelaces-upload-pdf";
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const formData = new FormData();
+
+    formData.append("configId", configId);
+    formData.append("pdf", blob, `${configId}.pdf`);
+
+    const response = await fetch(uploadUrl, {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.error || "Unable to upload PDF.");
+    }
+
+    return result.upload;
   },
 
   onClick(event) {
@@ -1024,6 +1190,161 @@ window.ShoelaceApp = {
     }
   },
 
+  getCartProperties(configId) {
+    return this.getSummaryProperties(configId);
+  },
+
+  async addConfiguredProductToCart() {
+    const addToCartButton = document.getElementById("addToCart");
+
+    if (!addToCartButton) {
+      console.error("Add to Cart button not found.");
+      return;
+    }
+
+    if (!VARIANT_ID_WITH_CUSTOMIZATION) {
+      window.showCartStatus(
+        "Unable to add item",
+        "Shoelace product variant ID is missing. Please open the app admin once to finish setup.",
+        true,
+      );
+      return;
+    }
+
+    const configId =
+      window.crypto && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `shoelace-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    try {
+      addToCartButton.disabled = true;
+      addToCartButton.textContent = "Processing...";
+
+      window.showCartStatus(
+        "Step 1/2",
+        "Uploading shoelace PDF...",
+        false,
+      );
+
+      const pdfBytes = await this.generatePDF();
+      const upload = await this.uploadPDF(pdfBytes, configId);
+      const cartProperties = {
+        ...this.getCartProperties(configId),
+        _pdfUrl: upload.secureUrl,
+        "Design PDF": upload.secureUrl,
+      };
+
+      window.showCartStatus(
+        "Step 2/2",
+        "Adding shoelace configuration to cart...",
+        false,
+      );
+
+      const response = await fetch("/cart/add.js", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          id: VARIANT_ID_WITH_CUSTOMIZATION,
+          quantity: 1,
+          properties: cartProperties,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.description || "Unable to add item to cart.");
+      }
+
+      window.showCartStatus(
+        "Success",
+        "Shoelace configuration added to cart.",
+        true,
+      );
+
+      console.log("Shoelace config ID:", configId);
+      console.log("Added to cart:", result);
+    } catch (error) {
+      console.error("Add to cart error:", error);
+
+      window.showCartStatus(
+        "Error",
+        error.message || "Something went wrong.",
+        true,
+      );
+    } finally {
+      addToCartButton.disabled = false;
+      addToCartButton.textContent = "Add To Cart";
+    }
+  },
+
+  getSummaryProperties(configId = null) {
+    return {
+      ...(configId
+        ? {
+            _configID: configId,
+            "Design ID": configId,
+          }
+        : {}),
+
+      Model: "Flat Shoelaces",
+      "Main Color": this.activeColor || "N/a",
+
+      "Front Text": this.frontTextValue || "N/a",
+      "Front Text Color": this.getTextColorSummary("front"),
+      "Front Emoji Color": this.getEmojiColorSummary("front"),
+
+      "Back Text": this.backTextValue || "N/a",
+      "Back Text Color": this.getTextColorSummary("back"),
+      "Back Emoji Color": this.getEmojiColorSummary("back"),
+    };
+  },
+
+  openSummaryModal() {
+    const modal = document.getElementById("summaryModal");
+    const table = document.getElementById("summaryTable");
+
+    if (!modal || !table) {
+      console.error("Summary modal or summary table not found.");
+      return;
+    }
+
+    const properties = this.getSummaryProperties();
+
+    table.innerHTML = Object.entries(properties)
+      .map(([label, value]) => {
+        return `
+        <div class="summary-row">
+          <span class="summary-label">${this.escapeHTML(label)}</span>
+          <span class="summary-value">${this.escapeHTML(value)}</span>
+        </div>
+      `;
+      })
+      .join("");
+
+    modal.classList.add("active");
+  },
+
+  closeSummaryModal() {
+    const modal = document.getElementById("summaryModal");
+
+    if (!modal) return;
+
+    modal.classList.remove("active");
+  },
+
+  escapeHTML(value) {
+    return String(value ?? "N/a")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  },
+
   setupUI() {
     const directionalButton = document.querySelector(".directional-button");
     const textInput = document.getElementById("shoelace-text");
@@ -1031,6 +1352,11 @@ window.ShoelaceApp = {
     const emojiButtons = document.querySelectorAll(".emoji-btn");
     const backBtn = document.getElementById("backButton");
     const pdfBtn = document.getElementById("pdfBtn");
+    const addToCartBtn = document.getElementById("addToCart");
+    const summaryBtn = document.getElementById("position-btn");
+    const closeSummaryBtn = document.getElementById("closeSummary");
+    const summaryModal = document.getElementById("summaryModal");
+    const summaryOverlay = document.querySelector(".summary-overlay");
 
     if (textInput) {
       textInput.addEventListener("focus", () => {
@@ -1064,6 +1390,49 @@ window.ShoelaceApp = {
       });
     }
 
+    if (pdfBtn) {
+      pdfBtn.addEventListener("click", async () => {
+        const pdfBytes = await ShoelaceApp.generatePDF();
+        ShoelaceApp.downloadPDF(pdfBytes);
+      });
+    }
+
+    if (backBtn) {
+      backBtn.addEventListener("click", () => {
+        this.backShoe();
+      });
+    }
+
+    if (directionalButton) {
+      directionalButton.addEventListener("click", () => {
+        this.toggleBackCameraView();
+      });
+    }
+
+    if (addToCartBtn) {
+      addToCartBtn.addEventListener("click", () => {
+        this.addConfiguredProductToCart();
+      });
+    }
+
+    if (summaryBtn) {
+      summaryBtn.addEventListener("click", () => {
+        this.openSummaryModal();
+      });
+    }
+
+    if (closeSummaryBtn) {
+      closeSummaryBtn.addEventListener("click", () => {
+        this.closeSummaryModal();
+      });
+    }
+
+    if (summaryOverlay) {
+      summaryOverlay.addEventListener("click", () => {
+        this.closeSummaryModal();
+      });
+    }
+
     emojiButtons.forEach((btn) => {
       btn.addEventListener("click", () => {
         const iconName = btn.dataset.icon;
@@ -1088,27 +1457,22 @@ window.ShoelaceApp = {
       });
     });
 
-    pdfBtn.addEventListener("click", async () => {
-      const pdfBytes = await ShoelaceApp.generatePDF();
-      ShoelaceApp.downloadPDF(pdfBytes);
+    document.addEventListener("keydown", (event) => {
+      if (
+        event.key === "Escape" &&
+        summaryModal?.classList.contains("active")
+      ) {
+        this.closeSummaryModal();
+      }
     });
-
-    if (backBtn) {
-      backBtn.addEventListener("click", () => {
-        this.backShoe();
-      });
-    }
-
-    if (directionalButton) {
-      directionalButton.addEventListener("click", () => {
-        this.toggleBackCameraView();
-      });
-    }
   },
 
   onResize() {
-    this.viewport_width = window.innerWidth < 992 ? 0 : 500;
-    this.viewport_height = window.innerWidth < 992 ? 2 : 1;
+    const isMobile = window.innerWidth < 992 || window.innerHeight < 430;
+    const isPortrait = window.innerHeight > window.innerWidth;
+
+    this.viewport_width = isMobile ? 0 : 500;
+    this.viewport_height = isMobile && isPortrait ? 2 : 1;
 
     const width = window.innerWidth - this.viewport_width;
     const height = window.innerHeight / this.viewport_height;

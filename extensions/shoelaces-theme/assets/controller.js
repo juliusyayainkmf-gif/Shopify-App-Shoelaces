@@ -172,15 +172,29 @@ buttons.forEach((btn, i) => {
 // Cart status
 // =========================
 
-function showCartStatus(title, message) {
+window.showCartStatus = function (title, message, autoClose = true) {
   const overlay = document.getElementById("addToCartStatus");
+  const titleEl = document.getElementById("cartStatusTitle");
+  const messageEl = document.getElementById("cartStatusMessage");
 
-  document.getElementById("cartStatusTitle").innerText = title;
-  document.getElementById("cartStatusMessage").innerText = message;
+  if (!overlay || !titleEl || !messageEl) return;
+
+  titleEl.innerText = title;
+  messageEl.innerText = message;
 
   overlay.classList.add("show");
 
-  setTimeout(() => {
-    overlay.classList.remove("show");
-  }, 3000);
-}
+  if (autoClose) {
+    setTimeout(() => {
+      overlay.classList.remove("show");
+    }, 3000);
+  }
+};
+
+window.hideCartStatus = function () {
+  const overlay = document.getElementById("addToCartStatus");
+
+  if (!overlay) return;
+
+  overlay.classList.remove("show");
+};

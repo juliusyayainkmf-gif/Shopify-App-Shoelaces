@@ -1,7 +1,20 @@
-{{ 'lib/bootstrap.min.css' | asset_url | stylesheet_tag }}
+{{ 'bootstrap.min.css' | asset_url | stylesheet_tag }}
+{{ 'configurator_style.css' | asset_url | stylesheet_tag }}
+{{ 'configurator_mobile.css' | asset_url | stylesheet_tag }}
 
-{{ 'css/configurator_style.css' | asset_url | stylesheet_tag }}
-{{ 'css/configurator_mobile.css' | asset_url | stylesheet_tag }}
+<div id="loader" class="d-flex flex-column gap-3">
+  <svg class="spinner" viewBox="0 0 50 50">
+    <circle
+      class="path"
+      cx="25"
+      cy="25"
+      r="20"
+      fill="none"
+      stroke-width="4"
+    />
+  </svg>
+  <p>Loading...</p>
+</div>
 
 <div class="shoelaces-configurator-wrapper">
   <div class="container-fluid w-100 h-100 p-0">
@@ -139,7 +152,7 @@
     <div class="directional-button d-flex gap-3">
       <img
         class="directional-img"
-        src="{{ 'images/arrows.png' | asset_url }}"
+        src="{{ 'arrows.png' | asset_url }}"
         alt="360 Directional Arrow Button"
         width=""
         height=""
@@ -225,106 +238,28 @@
                     <label for="shoelace-color" class="fw-bold py-2"> Color: </label>
 
                     <div class="color-container">
-                      <button
-                        class="rounded-3 color-btn"
-                        type="button"
-                        data-color="#ff0000"
-                        style="background:#ff0000;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="bottom"
-                        title="Red"
-                        data-title="Red"
-                      ></button>
-                      <button
-                        class="rounded-3 color-btn"
-                        type="button"
-                        data-color="#00ff00"
-                        style="background:#00ff00;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="bottom"
-                        title="Green"
-                        data-title="Green"
-                      ></button>
-                      <button
-                        class="rounded-3 color-btn"
-                        type="button"
-                        data-color="#0000ff"
-                        style="background:#0000ff;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="bottom"
-                        title="Blue"
-                        data-title="Blue"
-                      ></button>
-                      <button
-                        class="rounded-3 color-btn"
-                        type="button"
-                        data-color="#ffff00"
-                        style="background:#ffff00;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="bottom"
-                        title="Yellow"
-                        data-title="Yellow"
-                      ></button>
-                      <button
-                        class="rounded-3 color-btn"
-                        type="button"
-                        data-color="#ff00ff"
-                        style="background:#ff00ff;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="bottom"
-                        title="Pink"
-                        data-title="Pink"
-                      ></button>
-                      <button
-                        class="rounded-3 color-btn"
-                        type="button"
-                        data-color="#00ffff"
-                        style="background:#00ffff;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="bottom"
-                        title="Teal"
-                        data-title="Teal"
-                      ></button>
-                      <button
-                        class="rounded-3 color-btn"
-                        type="button"
-                        data-color="#ffffff"
-                        style="background:#ffffff;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="bottom"
-                        title="White"
-                        data-title="White"
-                      ></button>
-                      <button
-                        class="rounded-3 color-btn"
-                        type="button"
-                        data-color="#000000"
-                        style="background:#000000;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="bottom"
-                        title="Black"
-                        data-title="Black"
-                      ></button>
-                      <button
-                        class="rounded-3 color-btn"
-                        type="button"
-                        data-color="#888888"
-                        style="background:#888888;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="bottom"
-                        title="Gray"
-                        data-title="Gray"
-                      ></button>
-                      <button
-                        class="rounded-3 color-btn"
-                        type="button"
-                        data-color="#ffa500"
-                        style="background:#ffa500;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="bottom"
-                        title="Gold"
-                        data-title="Gold"
-                      ></button>
+                      {% assign shoelace_colors = metaobjects.shoelaces_colors.values %}
+
+                      {% if shoelace_colors != blank %}
+                        {% for color_entry in shoelace_colors %}
+                          {% assign color_name = color_entry.name.value %}
+                          {% assign color_hex = color_entry.hex.value %}
+
+                          <button
+                            class="rounded-3 color-btn"
+                            type="button"
+                            data-color="{{ color_hex }}"
+                            style="background: {{ color_hex }};"
+                            data-bs-toggle="tooltip"
+                            data-bs-placement="bottom"
+                            title="{{ color_name }}"
+                            data-title="{{ color_name }}"
+                            aria-label="{{ color_name }}"
+                          ></button>
+                        {% endfor %}
+                      {% else %}
+                        <p>No shoelace colors found. Open the app admin once to create default colors.</p>
+                      {% endif %}
                     </div>
                   </div>
                 </div>
@@ -372,9 +307,9 @@
                         class="emoji-btn"
                         data-icon="heart"
                         data-marker="♥"
-                        data-svg="{{ 'images/heart.svg' | asset_url }}"
+                        data-svg="{{ 'heart.svg' | asset_url }}"
                       >
-                        <img src="{{ 'images/heart.svg' | asset_url }}" alt="Heart icon" width="" height="">
+                        <img src="{{ 'heart.svg' | asset_url }}" alt="Heart icon" width="" height="">
                       </button>
 
                       <button
@@ -382,9 +317,29 @@
                         class="emoji-btn"
                         data-icon="clover"
                         data-marker="☘"
-                        data-svg="{{ 'images/clover.svg' | asset_url }}"
+                        data-svg="{{ 'clover.svg' | asset_url }}"
                       >
-                        <img src="{{ 'images/clover.svg' | asset_url }}" alt="Clover icon" width="" height="">
+                        <img src="{{ 'clover.svg' | asset_url }}" alt="Clover icon" width="" height="">
+                      </button>
+
+                      <button
+                        type="button"
+                        class="emoji-btn"
+                        data-icon="spade"
+                        data-marker="♠"
+                        data-svg="{{ 'spade.svg' | asset_url }}"
+                      >
+                        <img src="{{ 'spade.svg' | asset_url }}" alt="Spade icon" width="" height="">
+                      </button>
+
+                      <button
+                        type="button"
+                        class="emoji-btn"
+                        data-icon="diamond"
+                        data-marker="♦"
+                        data-svg="{{ 'diamond.svg' | asset_url }}"
+                      >
+                        <img src="{{ 'diamond.svg' | asset_url }}" alt="Diamond icon" width="" height="">
                       </button>
                     </div>
                   </div>
@@ -430,6 +385,18 @@
       <h3 id="cartStatusMessage">You can continue shopping or checkout.</h3>
     </div>
   </div>
+
+  <div id="summaryModal" class="summary-modal">
+    <div class="summary-overlay"></div>
+
+    <div class="summary-content">
+      <button id="closeSummary" class="summary-close">✕</button>
+
+      <h3 class="mb-4">Order Summary</h3>
+
+      <div id="summaryTable" class="summary-container"></div>
+    </div>
+  </div>
 </div>
 
 <script id="configurator-data" type="application/json">
@@ -440,9 +407,11 @@
       "shoe": "https://cdn.shopify.com/3d/models/cd7b48396f576b17/airforce1_noLogo_1.glb"
     },
     "assets": {
-      "arrows": {{ 'images/arrows.png' | asset_url | json }},
-      "heart": {{ 'images/heart.svg' | asset_url | json }},
-      "clover": {{ 'images/clover.svg' | asset_url | json }}
+      "arrows": {{ 'arrows.png' | asset_url | json }},
+      "heart": {{ 'heart.svg' | asset_url | json }},
+      "clover": {{ 'clover.svg' | asset_url | json }},
+      "spade": {{ 'spade.svg' | asset_url | json }},
+      "diamond": {{ 'diamond.svg' | asset_url | json }}
     }
   }
 </script>
@@ -456,9 +425,16 @@
   }
 </script>
 
-<script src="{{ 'lib/bootstrap.bundle.min.js' | asset_url }}" defer></script>
-<script src="{{ 'lib/gsap.min.js' | asset_url }}" defer></script>
-<script src="{{ 'lib/pdf-lib.min.js' | asset_url }}" defer></script>
+<script>
+  window.SHOELACE_CONFIG = {
+    variantId: {{ shop.metafields.shoelaces_configurator.variant_id.value | json }},
+    uploadPdfUrl: {{ '/apps/shoelaces-upload-pdf' | json }}
+  };
+</script>
+
+<script src="{{ 'bootstrap.bundle.min.js' | asset_url }}" defer></script>
+<script src="{{ 'gsap.min.js' | asset_url }}" defer></script>
+<script src="{{ 'pdf-lib.min.js' | asset_url }}" defer></script>
 
 <script type="module">
   import * as THREE from "three";
@@ -478,10 +454,10 @@
   window.SVGLoader = SVGLoader;
   window.SVGLoaderCreateShapes = SVGLoader.createShapes;
 
-  await import({{ 'js/shoelace-text.js' | asset_url | json }});
-  await import({{ 'js/script.js' | asset_url | json }});
-  await import({{ 'js/controller.js' | asset_url | json }});
-  await import({{ 'js/draganddrop.js' | asset_url | json }});
+  await import({{ 'shoelace-text.js' | asset_url | json }});
+  await import({{ 'script.js' | asset_url | json }});
+  await import({{ 'controller.js' | asset_url | json }});
+  await import({{ 'draganddrop.js' | asset_url | json }});
 </script>
 
 {% schema %}

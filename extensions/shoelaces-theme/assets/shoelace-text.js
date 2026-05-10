@@ -1,12 +1,19 @@
 window.ShoelaceText = {
   loadTextFont(app) {
-    app.fontLoader = new window.FontLoader();
+    const loader = app.fontLoader || new window.FontLoader();
 
-    app.fontLoader.load("https://cdn.shopify.com/s/files/1/0671/0086/8674/files/helve.json?v=1773685789", (font) => {
-      app.font = font;
-      this.updateShoelaceText(app, "", "front");
-      this.updateShoelaceText(app, "", "back");
-    });
+    loader.load(
+      "https://cdn.shopify.com/s/files/1/0671/0086/8674/files/helve.json?v=1773685789",
+      (font) => {
+        app.font = font;
+        this.updateShoelaceText(app, "", "front");
+        this.updateShoelaceText(app, "", "back");
+      },
+      undefined,
+      (error) => {
+        console.error("Failed to load font:", error);
+      },
+    );
   },
 
   splitTextAndIcons(app, text) {
@@ -27,7 +34,9 @@ window.ShoelaceText = {
       return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     };
 
-    const markerPattern = icons.map((icon) => escapeRegExp(icon.marker)).join("|");
+    const markerPattern = icons
+      .map((icon) => escapeRegExp(icon.marker))
+      .join("|");
     const tokens = text.split(new RegExp(`(${markerPattern})`, "g"));
 
     tokens.forEach((token) => {
@@ -117,7 +126,8 @@ window.ShoelaceText = {
   async updateShoelaceText(app, text, side = "front") {
     const textColor = side === "front" ? app.frontTextColor : app.backTextColor;
 
-    const emojiColor = side === "front" ? app.frontEmojiColor : app.backEmojiColor;
+    const emojiColor =
+      side === "front" ? app.frontEmojiColor : app.backEmojiColor;
 
     if (side === "front") {
       app.frontTextValue = text;
@@ -127,7 +137,8 @@ window.ShoelaceText = {
 
     if (!app.font || !app.textTargetLaces.length) return;
 
-    const meshListName = side === "front" ? "frontTextMeshes" : "backTextMeshes";
+    const meshListName =
+      side === "front" ? "frontTextMeshes" : "backTextMeshes";
 
     app[meshListName].forEach((mesh) => {
       app.scene.remove(mesh);
