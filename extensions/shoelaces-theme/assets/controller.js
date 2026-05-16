@@ -1,5 +1,5 @@
 let currentIndex = 0;
-let activeColorTarget = "all";
+let activeColorTarget = "model";
 
 // =========================
 // Apply material color helper
@@ -12,6 +12,53 @@ function applyMaterialColor(material, color) {
   material.needsUpdate = true;
 }
 
+function getMeshBaseName(mesh) {
+  return (mesh?.name || "").toLowerCase().replace(/\.\d+$/, "");
+}
+
+function getEditableShoelaceKey(mesh) {
+  if (window.ShoelaceApp?.getEditableShoelaceKey) {
+    return window.ShoelaceApp.getEditableShoelaceKey(mesh?.name);
+  }
+
+  return getMeshBaseName(mesh);
+}
+
+function isShoePreviewLaceMesh(mesh) {
+  const rawName = String(mesh?.name || "").toLowerCase();
+
+  return (
+    rawName === "object_40.001" ||
+    rawName === "object_40.002" ||
+    rawName === "object_40001" ||
+    rawName === "object_40002"
+  );
+}
+
+window.applyShoePreviewLaceColor = function (shoe, color) {
+  if (!shoe || !color) return;
+
+  let didApplyColor = false;
+
+  shoe.traverse((child) => {
+    if (!child.isMesh || !isShoePreviewLaceMesh(child)) return;
+
+    if (Array.isArray(child.material)) {
+      child.material.forEach((mat) => applyMaterialColor(mat, color));
+    } else {
+      applyMaterialColor(child.material, color);
+    }
+
+    didApplyColor = true;
+  });
+
+  if (!didApplyColor) {
+    console.warn(
+      "No shoe preview lace meshes matched Object_40.001, Object_40.002, Object_40001, or Object_40002.",
+    );
+  }
+};
+
 // =========================
 // Update model color
 // =========================
@@ -20,12 +67,20 @@ function updateModelColorFromColor(color, colorName = "") {
   if (!color) return;
 
   ShoelaceApp.activeColor = colorName || color;
+  ShoelaceApp.activeModelColorHex = color;
 
   ShoelaceApp.shoelaces.forEach((mesh) => {
-    const name = mesh.name.toLowerCase();
+    const name = getEditableShoelaceKey(mesh);
 
-    // only shoelace_1 and shoelace_2
-    if (name !== "shoelace_1" && name !== "shoelace_2") return;
+    // only editable shoelace meshes
+    if (
+      name !== "shoelace_1" &&
+      name !== "shoelace_2" &&
+      name !== "shoelace_3" &&
+      name !== "shoelace_4"
+    ) {
+      return;
+    }
 
     if (Array.isArray(mesh.material)) {
       mesh.material.forEach((mat) => applyMaterialColor(mat, color));
@@ -33,6 +88,8 @@ function updateModelColorFromColor(color, colorName = "") {
       applyMaterialColor(mesh.material, color);
     }
   });
+
+  window.applyShoePreviewLaceColor(ShoelaceApp.shoe, color);
 }
 
 // =========================
@@ -53,10 +110,11 @@ function updateTextColorFromColor(color, colorName = "") {
   const targetMeshes = ShoelaceApp.isBackView
     ? ShoelaceApp.backTextMeshes
     : ShoelaceApp.frontTextMeshes;
+  const previewTargetMeshes = ShoelaceApp.isBackView
+    ? ShoelaceApp.backPreviewTextMeshes
+    : ShoelaceApp.frontPreviewTextMeshes;
 
-  if (!targetMeshes) return;
-
-  targetMeshes.forEach((item) => {
+  [...(targetMeshes || []), ...(previewTargetMeshes || [])].forEach((item) => {
     item.traverse((child) => {
       if (
         child.isMesh &&
@@ -84,10 +142,11 @@ function updateEmojiColorFromColor(color, colorName = "") {
   const targetMeshes = ShoelaceApp.isBackView
     ? ShoelaceApp.backTextMeshes
     : ShoelaceApp.frontTextMeshes;
+  const previewTargetMeshes = ShoelaceApp.isBackView
+    ? ShoelaceApp.backPreviewTextMeshes
+    : ShoelaceApp.frontPreviewTextMeshes;
 
-  if (!targetMeshes) return;
-
-  targetMeshes.forEach((item) => {
+  [...(targetMeshes || []), ...(previewTargetMeshes || [])].forEach((item) => {
     item.traverse((child) => {
       if (
         child.isMesh &&
@@ -141,7 +200,9 @@ const buttons = document.querySelectorAll(".color-btn");
 const fontButtons = document.querySelectorAll(".font-btn");
 
 document.addEventListener("DOMContentLoaded", function () {
-  const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+  const tooltipTriggerList = document.querySelectorAll(
+    '[data-bs-toggle="tooltip"]',
+  );
   tooltipTriggerList.forEach((el) => new bootstrap.Tooltip(el));
 });
 

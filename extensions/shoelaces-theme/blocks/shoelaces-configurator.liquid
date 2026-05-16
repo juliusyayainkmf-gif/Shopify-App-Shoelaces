@@ -27,6 +27,20 @@
     <div class="icon-container d-flex gap-3">
       <div class="d-flex flex-row gap-4">
         <div class="tooltip-container">
+          <button id="previewShoeBtn" type="button" aria-label="Preview shoes">
+            <img
+              src="{{ 'shoes.svg' | asset_url }}"
+              alt="Preview Your Shoes Button"
+              class="preview-image"
+              width=""
+              height=""
+            >
+          </button>
+
+          <div class="tooltip-text">Preview Your Shoelaces on Jordan Shoes</div>
+        </div>
+
+        <div class="tooltip-container">
           <button id="helpBtn" type="button" aria-label="Help">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -194,6 +208,488 @@
                       Flat Shoelaces
                     </button>
                   </div>
+
+                  <div class="d-none flex-column gap-3" aria-hidden="true">
+                    <label class="fw-bold py-2 mb-0"> Shoelace Model Position: </label>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-model-x">
+                        X: <span data-shoelace-model-value="x">0</span>
+                      </label>
+                      <input
+                        id="shoelace-model-x"
+                        class="form-range"
+                        type="range"
+                        min="-5"
+                        max="5"
+                        step="0.01"
+                        value="0"
+                        data-shoelace-model-slider="x"
+                      >
+                    </div>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-model-y">
+                        Y: <span data-shoelace-model-value="y">0</span>
+                      </label>
+                      <input
+                        id="shoelace-model-y"
+                        class="form-range"
+                        type="range"
+                        min="-5"
+                        max="5"
+                        step="0.01"
+                        value="0"
+                        data-shoelace-model-slider="y"
+                      >
+                    </div>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-model-z">
+                        Z: <span data-shoelace-model-value="z">0</span>
+                      </label>
+                      <input
+                        id="shoelace-model-z"
+                        class="form-range"
+                        type="range"
+                        min="-5"
+                        max="5"
+                        step="0.01"
+                        value="0"
+                        data-shoelace-model-slider="z"
+                      >
+                    </div>
+
+                    <label class="fw-bold py-2 mb-0"> Shoelace Model Rotation: </label>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-model-rotation-x">
+                        X: <span data-shoelace-model-value="rotationX">0</span>
+                      </label>
+                      <input
+                        id="shoelace-model-rotation-x"
+                        class="form-range"
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="1"
+                        value="0"
+                        data-shoelace-model-slider="rotationX"
+                      >
+                    </div>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-model-rotation-y">
+                        Y: <span data-shoelace-model-value="rotationY">0</span>
+                      </label>
+                      <input
+                        id="shoelace-model-rotation-y"
+                        class="form-range"
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="1"
+                        value="0"
+                        data-shoelace-model-slider="rotationY"
+                      >
+                    </div>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-model-rotation-z">
+                        Z: <span data-shoelace-model-value="rotationZ">0</span>
+                      </label>
+                      <input
+                        id="shoelace-model-rotation-z"
+                        class="form-range"
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="1"
+                        value="0"
+                        data-shoelace-model-slider="rotationZ"
+                      >
+                    </div>
+
+                    <label class="fw-bold py-2 mb-0"> Shoelace Text Position: </label>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-text-x">
+                        X: <span data-shoelace-text-value="x">0.55</span>
+                      </label>
+                      <input
+                        id="shoelace-text-x"
+                        class="form-range"
+                        type="range"
+                        min="-2"
+                        max="2"
+                        step="0.01"
+                        value="0.55"
+                        data-shoelace-text-slider="x"
+                      >
+                    </div>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-text-y">
+                        Y: <span data-shoelace-text-value="y">0.01</span>
+                      </label>
+                      <input
+                        id="shoelace-text-y"
+                        class="form-range"
+                        type="range"
+                        min="-2"
+                        max="2"
+                        step="0.01"
+                        value="0.01"
+                        data-shoelace-text-slider="y"
+                      >
+                    </div>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-text-z">
+                        Z: <span data-shoelace-text-value="z">-0.09</span>
+                      </label>
+                      <input
+                        id="shoelace-text-z"
+                        class="form-range"
+                        type="range"
+                        min="-1"
+                        max="1"
+                        step="0.01"
+                        value="-0.09"
+                        data-shoelace-text-slider="z"
+                      >
+                    </div>
+
+                    <label class="fw-bold py-2 mb-0"> Shoelace Text Rotation: </label>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-text-rotation-x">
+                        X: <span data-shoelace-text-value="rotationX">-90</span>
+                      </label>
+                      <input
+                        id="shoelace-text-rotation-x"
+                        class="form-range"
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="1"
+                        value="-90"
+                        data-shoelace-text-slider="rotationX"
+                      >
+                    </div>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-text-rotation-y">
+                        Y: <span data-shoelace-text-value="rotationY">0</span>
+                      </label>
+                      <input
+                        id="shoelace-text-rotation-y"
+                        class="form-range"
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="1"
+                        value="0"
+                        data-shoelace-text-slider="rotationY"
+                      >
+                    </div>
+
+                    <div>
+                      <label class="form-label small mb-1" for="shoelace-text-rotation-z">
+                        Z: <span data-shoelace-text-value="rotationZ">0</span>
+                      </label>
+                      <input
+                        id="shoelace-text-rotation-z"
+                        class="form-range"
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="1"
+                        value="0"
+                        data-shoelace-text-slider="rotationZ"
+                      >
+                    </div>
+                  </div>
+
+                  <div class="d-flex flex-column gap-4" hidden aria-hidden="true">
+                    <label class="fw-bold py-2 mb-0"> Shoelace Placement: </label>
+
+                    {% assign editable_shoelaces = 'shoelace_3,Shoelace 3|shoelace_4,Shoelace 4' | split: '|' %}
+
+                    {% for shoelace_entry in editable_shoelaces %}
+                      {% assign shoelace_parts = shoelace_entry | split: ',' %}
+                      {% assign shoelace_key = shoelace_parts[0] %}
+                      {% assign shoelace_label = shoelace_parts[1] %}
+                      {% if shoelace_key == 'shoelace_3' %}
+                        {% assign placement_x = '3.62' %}
+                        {% assign placement_y = '-0.06' %}
+                        {% assign placement_z = '3.85' %}
+                        {% assign placement_rotation_y = '-129' %}
+                      {% else %}
+                        {% assign placement_x = '3.32' %}
+                        {% assign placement_y = '-0.06' %}
+                        {% assign placement_z = '1.39' %}
+                        {% assign placement_rotation_y = '-115' %}
+                      {% endif %}
+
+                      <div class="border rounded p-3 d-flex flex-column gap-3">
+                        <h5 class="mb-0">{{ shoelace_label }}</h5>
+
+                        <div class="d-flex flex-column gap-2">
+                          <label class="fw-bold mb-0"> Position </label>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-x">
+                              X: <span data-shoelace-mesh-value="{{ shoelace_key }}.x">{{ placement_x }}</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-x"
+                              class="form-range"
+                              type="range"
+                              min="-5"
+                              max="5"
+                              step="0.01"
+                              value="{{ placement_x }}"
+                              data-shoelace-mesh="{{ shoelace_key }}"
+                              data-shoelace-mesh-slider="x"
+                            >
+                          </div>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-y">
+                              Y: <span data-shoelace-mesh-value="{{ shoelace_key }}.y">{{ placement_y }}</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-y"
+                              class="form-range"
+                              type="range"
+                              min="-5"
+                              max="5"
+                              step="0.01"
+                              value="{{ placement_y }}"
+                              data-shoelace-mesh="{{ shoelace_key }}"
+                              data-shoelace-mesh-slider="y"
+                            >
+                          </div>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-z">
+                              Z: <span data-shoelace-mesh-value="{{ shoelace_key }}.z">{{ placement_z }}</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-z"
+                              class="form-range"
+                              type="range"
+                              min="-5"
+                              max="5"
+                              step="0.01"
+                              value="{{ placement_z }}"
+                              data-shoelace-mesh="{{ shoelace_key }}"
+                              data-shoelace-mesh-slider="z"
+                            >
+                          </div>
+                        </div>
+
+                        <div class="d-flex flex-column gap-2">
+                          <label class="fw-bold mb-0"> Rotation </label>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-rotation-x">
+                              X: <span data-shoelace-mesh-value="{{ shoelace_key }}.rotationX">0</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-rotation-x"
+                              class="form-range"
+                              type="range"
+                              min="-180"
+                              max="180"
+                              step="1"
+                              value="0"
+                              data-shoelace-mesh="{{ shoelace_key }}"
+                              data-shoelace-mesh-slider="rotationX"
+                            >
+                          </div>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-rotation-y">
+                              Y: <span data-shoelace-mesh-value="{{ shoelace_key }}.rotationY">{{ placement_rotation_y }}</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-rotation-y"
+                              class="form-range"
+                              type="range"
+                              min="-180"
+                              max="180"
+                              step="1"
+                              value="{{ placement_rotation_y }}"
+                              data-shoelace-mesh="{{ shoelace_key }}"
+                              data-shoelace-mesh-slider="rotationY"
+                            >
+                          </div>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-rotation-z">
+                              Z: <span data-shoelace-mesh-value="{{ shoelace_key }}.rotationZ">0</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-rotation-z"
+                              class="form-range"
+                              type="range"
+                              min="-180"
+                              max="180"
+                              step="1"
+                              value="0"
+                              data-shoelace-mesh="{{ shoelace_key }}"
+                              data-shoelace-mesh-slider="rotationZ"
+                            >
+                          </div>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+
+                  <div class="d-flex flex-column gap-4">
+                    <label class="fw-bold py-2 mb-0"> Duplicate Text Placement: </label>
+
+                    {% assign duplicate_text_shoelaces = 'shoelace_3,Shoelace 3 Text|shoelace_4,Shoelace 4 Text' | split: '|' %}
+
+                    {% for shoelace_entry in duplicate_text_shoelaces %}
+                      {% assign shoelace_parts = shoelace_entry | split: ',' %}
+                      {% assign shoelace_key = shoelace_parts[0] %}
+                      {% assign shoelace_label = shoelace_parts[1] %}
+
+                      <div class="border rounded p-3 d-flex flex-column gap-3">
+                        <h5 class="mb-0">{{ shoelace_label }}</h5>
+
+                        <div class="d-flex flex-column gap-2">
+                          <label class="fw-bold mb-0"> Text Position </label>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-text-x">
+                              Front X: <span data-duplicate-shoelace-text-value="{{ shoelace_key }}.x">-0.16</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-text-x"
+                              class="form-range"
+                              type="range"
+                              min="-2"
+                              max="2"
+                              step="0.01"
+                              value="-0.16"
+                              data-duplicate-shoelace-text="{{ shoelace_key }}"
+                              data-duplicate-shoelace-text-slider="x"
+                            >
+                          </div>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-text-back-x">
+                              Back X: <span data-duplicate-shoelace-text-value="{{ shoelace_key }}.backX">-0.185</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-text-back-x"
+                              class="form-range"
+                              type="range"
+                              min="-2"
+                              max="2"
+                              step="0.01"
+                              value="-0.185"
+                              data-duplicate-shoelace-text="{{ shoelace_key }}"
+                              data-duplicate-shoelace-text-slider="backX"
+                            >
+                          </div>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-text-y">
+                              Y: <span data-duplicate-shoelace-text-value="{{ shoelace_key }}.y">0.01</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-text-y"
+                              class="form-range"
+                              type="range"
+                              min="-2"
+                              max="2"
+                              step="0.01"
+                              value="0.01"
+                              data-duplicate-shoelace-text="{{ shoelace_key }}"
+                              data-duplicate-shoelace-text-slider="y"
+                            >
+                          </div>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-text-z">
+                              Z: <span data-duplicate-shoelace-text-value="{{ shoelace_key }}.z">-0.09</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-text-z"
+                              class="form-range"
+                              type="range"
+                              min="-1"
+                              max="1"
+                              step="0.01"
+                              value="-0.09"
+                              data-duplicate-shoelace-text="{{ shoelace_key }}"
+                              data-duplicate-shoelace-text-slider="z"
+                            >
+                          </div>
+                        </div>
+
+                        <div class="d-flex flex-column gap-2">
+                          <label class="fw-bold mb-0"> Text Rotation </label>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-text-rotation-x">
+                              X: <span data-duplicate-shoelace-text-value="{{ shoelace_key }}.rotationX">90</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-text-rotation-x"
+                              class="form-range"
+                              type="range"
+                              min="-180"
+                              max="180"
+                              step="1"
+                              value="90"
+                              data-duplicate-shoelace-text="{{ shoelace_key }}"
+                              data-duplicate-shoelace-text-slider="rotationX"
+                            >
+                          </div>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-text-rotation-y">
+                              Y: <span data-duplicate-shoelace-text-value="{{ shoelace_key }}.rotationY">0</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-text-rotation-y"
+                              class="form-range"
+                              type="range"
+                              min="-180"
+                              max="180"
+                              step="1"
+                              value="0"
+                              data-duplicate-shoelace-text="{{ shoelace_key }}"
+                              data-duplicate-shoelace-text-slider="rotationY"
+                            >
+                          </div>
+
+                          <div>
+                            <label class="form-label small mb-1" for="{{ shoelace_key }}-text-rotation-z">
+                              Z: <span data-duplicate-shoelace-text-value="{{ shoelace_key }}.rotationZ">0</span>
+                            </label>
+                            <input
+                              id="{{ shoelace_key }}-text-rotation-z"
+                              class="form-range"
+                              type="range"
+                              min="-180"
+                              max="180"
+                              step="1"
+                              value="0"
+                              data-duplicate-shoelace-text="{{ shoelace_key }}"
+                              data-duplicate-shoelace-text-slider="rotationZ"
+                            >
+                          </div>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
                 </div>
               </div>
             </div>
@@ -218,17 +714,17 @@
                     <label for="shoelace-color" class="fw-bold py-2"> Apply To: </label>
 
                     <div class="color-target-group d-flex gap-2 flex-wrap mb-3">
-                      <button type="button" class="color-target-btn btn btn-dark btn-sm" data-target="all">All</button>
+                      {% comment %} <button type="button" class="color-target-btn btn btn-dark btn-sm" data-target="all">All</button> {% endcomment %}
 
-                      <button type="button" class="color-target-btn btn btn-outline-dark btn-sm" data-target="model">
+                      <button type="button" class="color-target-btn btn btn-dark btn-active active" data-target="model">
                         Laces
                       </button>
 
-                      <button type="button" class="color-target-btn btn btn-outline-dark btn-sm" data-target="text">
+                      <button type="button" class="color-target-btn btn btn-outline-dark" data-target="text">
                         Text
                       </button>
 
-                      <button type="button" class="color-target-btn btn btn-outline-dark btn-sm" data-target="emoji">
+                      <button type="button" class="color-target-btn btn btn-outline-dark" data-target="emoji">
                         Emoji
                       </button>
                     </div>
@@ -349,6 +845,32 @@
           </div>
         </div>
 
+        <div class="accordion w-100 hidden fade-out" id="summaryOptionsAccordion">
+          <button
+            class="btn btn-outline-dark option-btn btn-active w-100 py-3 my-2"
+            id="summaryBackButton"
+            type="button"
+          >
+            Go Back
+          </button>
+
+          <div class="text-center d-flex flex-column gap-4 py-5 preview-container">
+            <h2 class="preview-title">Preview on different shoe colors</h2>
+
+            <div class="d-flex justify-content-center gap-3">
+              <button class="shoe-btn white-btn active" id="shoeWhite" type="button" data-shoe-color="#ffffff">
+                <span class="dot white"></span>
+                White
+              </button>
+
+              <button class="shoe-btn black-btn" id="shoeBlack" type="button" data-shoe-color="#3a3a3a">
+                <span class="dot black"></span>
+                Black
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="price pb-4">
           <h3 class="d-flex justify-content-between">
             <span>Estimated Total: </span>
@@ -360,7 +882,7 @@
           <div class="d-flex gap-3">
             <button
               class="btn btn-outline-dark option-btn btn-active w-100 py-3"
-              id="position-btn"
+              id="summaryBtn"
               type="button"
             >
               Summary
@@ -402,9 +924,9 @@
 <script id="configurator-data" type="application/json">
   {
     "models": {
-      "small": "https://cdn.shopify.com/3d/models/0c332ce96aada3b2/test2.glb",
+      "small": "https://cdn.shopify.com/3d/models/d3a5d9da2c23967a/test3.glb",
       "medium": "https://cdn.shopify.com/3d/models/6ee0ab8c088d338d/medium.glb",
-      "shoe": "https://cdn.shopify.com/3d/models/cd7b48396f576b17/airforce1_noLogo_1.glb"
+      "shoe": "https://cdn.shopify.com/3d/models/e85bce55fb2b66aa/Jordan_Shoes.glb"
     },
     "assets": {
       "arrows": {{ 'arrows.png' | asset_url | json }},

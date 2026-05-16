@@ -23,6 +23,105 @@ window.ShoelaceApp = {
   model: null,
   shoe: null,
   shoelaces: [],
+  shoelaceParts: {
+    shoelace_1: [],
+    shoelace_2: [],
+    shoelace_3: [],
+    shoelace_4: [],
+  },
+  shoelacePivotGroups: {},
+  previewDuplicateShoelaces: [],
+  previewDuplicateTextTargetLaces: [],
+  shoelacePreviewState: null,
+  shoelaceModelTransform: {
+    x: 0,
+    y: 0,
+    z: 0,
+    rotationX: 0,
+    rotationY: 0,
+    rotationZ: 0,
+  },
+  shoelaceTextTransform: {
+    x: 0.54,
+    backX: 0.6,
+    y: 0.01,
+    z: -0.09,
+    rotationX: -90,
+    rotationY: 0,
+    rotationZ: 0,
+  },
+  duplicateShoelaceTextTransforms: {
+    shoelace_3: {
+      x: -0.14,
+      backX: -0.20,
+      y: 0.01,
+      z: -0.09,
+      rotationX: 90,
+      rotationY: 0,
+      rotationZ: 0,
+    },
+    shoelace_4: {
+      x: -0.14,
+      backX: -0.20,
+      y: 0.01,
+      z: -0.09,
+      rotationX: 90,
+      rotationY: 0,
+      rotationZ: 0,
+    },
+  },
+  shoelaceMeshTransforms: {
+    shoelace_1: {
+      x: 0,
+      y: 0,
+      z: 0,
+      rotationX: 0,
+      rotationY: 0,
+      rotationZ: 0,
+    },
+    shoelace_2: {
+      x: 0,
+      y: 0,
+      z: 0,
+      rotationX: 0,
+      rotationY: 0,
+      rotationZ: 0,
+    },
+    shoelace_3: {
+      x: 3.62,
+      y: -0.06,
+      z: 3.85,
+      rotationX: 0,
+      rotationY: -129,
+      rotationZ: 0,
+    },
+    shoelace_4: {
+      x: 3.32,
+      y: -0.06,
+      z: 1.39,
+      rotationX: 0,
+      rotationY: -115,
+      rotationZ: 0,
+    },
+  },
+  shoelacePreviewMeshTransforms: {
+    shoelace_1: {
+      x: -2.77,
+      y: -0.34,
+      z: -3.77,
+      rotationX: 0,
+      rotationY: -101,
+      rotationZ: 0,
+    },
+    shoelace_2: {
+      x: -0.51,
+      y: -0.36,
+      z: -2.29,
+      rotationX: 0,
+      rotationY: 43,
+      rotationZ: 0,
+    },
+  },
 
   mouseDown: false,
   startX: 0,
@@ -35,7 +134,9 @@ window.ShoelaceApp = {
   targetPosition: new THREE.Vector3(),
   isMoving: false,
   isBackView: false,
+  isShoePreviewActive: false,
   isCameraAnimating: false,
+  cameraAnimationId: 0,
 
   cameraStates: {},
 
@@ -44,6 +145,8 @@ window.ShoelaceApp = {
   backTextValue: "",
   frontTextMeshes: [],
   backTextMeshes: [],
+  frontPreviewTextMeshes: [],
+  backPreviewTextMeshes: [],
   textMaterial: null,
   textColor: "#111111",
   emojiColor: "#111111",
@@ -58,6 +161,7 @@ window.ShoelaceApp = {
   iconRegistry: {},
   iconTemplates: {},
   activeTextSide: "front",
+  activeShoeColor: "#ffffff",
 
   frontTextColorName: "Black",
   backTextColorName: "Black",
@@ -144,6 +248,7 @@ window.ShoelaceApp = {
     this.setupEvents();
     this.setupIconsFromButtons();
     this.setupUI();
+    this.disableImageDragging();
     this.updateTextInputAvailability();
     this.preloadIcons();
     this.animate();
@@ -248,6 +353,7 @@ window.ShoelaceApp = {
   setupLights() {
     const ambient = new THREE.AmbientLight(0xffffff, 10);
     this.scene.add(ambient);
+    this.ambientLight = ambient;
 
     const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
     dirLight.position.set(0, 10, 5);
@@ -267,6 +373,7 @@ window.ShoelaceApp = {
     dirLight.shadow.camera.updateProjectionMatrix();
 
     this.scene.add(dirLight);
+    this.dirLight = dirLight;
   },
 
   setupFloor() {
@@ -283,6 +390,88 @@ window.ShoelaceApp = {
     floor.receiveShadow = true;
 
     this.scene.add(floor);
+    this.floor = floor;
+  },
+
+  setPreviewLighting() {
+    if (this.ambientLight) {
+      this.ambientLight.intensity = 3;
+    }
+
+    if (this.dirLight) {
+      this.dirLight.intensity = 5;
+      this.dirLight.position.set(-4, 8, 7);
+    }
+
+    if (!this.previewHemisphereLight) {
+      this.previewHemisphereLight = new THREE.HemisphereLight(
+        0xffffff,
+        0xd8d8d8,
+        0.55,
+      );
+      this.scene.add(this.previewHemisphereLight);
+    }
+
+    this.previewHemisphereLight.visible = true;
+
+    this.renderer.toneMappingExposure = 1.08;
+  },
+
+  restoreConfiguratorLighting() {
+    if (this.ambientLight) {
+      this.ambientLight.intensity = 10;
+    }
+
+    if (this.dirLight) {
+      this.dirLight.intensity = 2.5;
+      this.dirLight.position.set(0, 10, 5);
+    }
+
+    if (this.previewHemisphereLight) {
+      this.previewHemisphereLight.visible = false;
+    }
+
+    this.renderer.toneMappingExposure = 1;
+  },
+
+  isJordanShoeColorMesh(mesh) {
+    if (!mesh?.isMesh) return false;
+
+    const rawName = String(mesh.name || "").toLowerCase();
+    const parentName = String(mesh.parent?.name || "").toLowerCase();
+
+    if (
+      rawName === "object_40.001" ||
+      rawName === "object_40.002" ||
+      rawName === "object_40001" ||
+      rawName === "object_40002" ||
+      parentName === "shoelace_18.001"
+    ) {
+      return false;
+    }
+
+    return true;
+  },
+
+  applyJordanShoeColor(color) {
+    if (!this.shoe || !color) return;
+
+    this.activeShoeColor = color;
+
+    this.shoe.traverse((child) => {
+      if (!this.isJordanShoeColorMesh(child)) return;
+
+      const materials = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+
+      materials.forEach((mat) => {
+        if (!mat?.color) return;
+
+        mat.color.set(color);
+        mat.needsUpdate = true;
+      });
+    });
   },
 
   setupPDFCameras(center) {
@@ -353,8 +542,8 @@ window.ShoelaceApp = {
 
     if (this.isCameraAnimating) return;
 
-    this.isCameraAnimating = true;
     this.isBackView = !this.isBackView;
+    this.activeTextSide = this.isBackView ? "back" : "front";
 
     this.unlockCameraDragLimits();
 
@@ -362,32 +551,44 @@ window.ShoelaceApp = {
       this.goToCameraState("back", () => {
         this.setCameraDragLimits("back");
         this.updateTextInputAvailability();
-        this.isCameraAnimating = false;
       });
     } else {
       this.goToCameraState("default", () => {
         this.setCameraDragLimits("front");
         this.updateTextInputAvailability();
-        this.isCameraAnimating = false;
       });
     }
   },
 
   goToCameraState(name, onComplete = null) {
     const state = this.cameraStates[name];
-    if (!state) return;
+    if (!state) {
+      console.warn(`[Shoelaces Configurator] Missing camera state: ${name}`);
+      this.isCameraAnimating = false;
+      return false;
+    }
 
-    // Stop any old camera animations
+    const animationId = ++this.cameraAnimationId;
+    this.isCameraAnimating = true;
+
     gsap.killTweensOf(this.camera.position);
     gsap.killTweensOf(this.controls.target);
 
     let completedTweens = 0;
 
     const finish = () => {
+      if (animationId !== this.cameraAnimationId) return;
+
       completedTweens++;
 
-      if (completedTweens === 2 && typeof onComplete === "function") {
-        onComplete();
+      if (completedTweens === 2) {
+        if (typeof onComplete === "function") {
+          onComplete();
+        }
+
+        if (animationId === this.cameraAnimationId) {
+          this.isCameraAnimating = false;
+        }
       }
     };
 
@@ -416,11 +617,21 @@ window.ShoelaceApp = {
       },
       onComplete: finish,
     });
+
+    return true;
   },
 
   loadModel() {
     this.shoelaces = [];
-
+    this.shoelaceParts = {
+      shoelace_1: [],
+      shoelace_2: [],
+      shoelace_3: [],
+      shoelace_4: [],
+    };
+    this.shoelacePivotGroups = {};
+    this.previewDuplicateShoelaces = [];
+    this.previewDuplicateTextTargetLaces = [];
     const modelEntries = Object.entries(this.models || {}).filter(
       ([key, modelPath]) => Boolean(modelPath),
     );
@@ -438,15 +649,6 @@ window.ShoelaceApp = {
       return name === "Plane.001" || name === "Plane.002";
     };
 
-    const prepareMaterial = (material, isLace) => {
-      if (!material) return material;
-
-      const mat = material.clone();
-
-      mat.needsUpdate = true;
-      return mat;
-    };
-
     modelEntries.forEach(([key, modelPath]) => {
       console.log("Loading model:", key, modelPath);
 
@@ -456,11 +658,27 @@ window.ShoelaceApp = {
           console.log("Loaded model:", key, gltf);
 
           const model = gltf.scene;
+          console.group(`[Shoelaces Configurator] ${key} mesh names`);
+          model.traverse((child) => {
+            if (!child.isMesh) return;
+
+            const materials = Array.isArray(child.material)
+              ? child.material
+              : [child.material];
+
+            console.log({
+              mesh: child.name || "(unnamed mesh)",
+              parent: child.parent?.name || "(no parent)",
+              materials: materials.map((mat) => mat?.name || "(unnamed material)"),
+            });
+          });
+          console.groupEnd();
 
           model.traverse((child) => {
             if (!child.isMesh) return;
 
             const isLace = child.name.toLowerCase().includes("shoelace");
+            const placementKey = this.getShoelacePlacementKey(child.name);
 
             const materials = Array.isArray(child.material)
               ? child.material
@@ -469,27 +687,31 @@ window.ShoelaceApp = {
             materials.forEach((mat) => {
               if (!mat) return;
 
-              mat.side = THREE.DoubleSide;
+              if (key !== "shoe") {
+                mat.side = THREE.DoubleSide;
+              }
 
-              if (isShoelaceFabric(mat.name)) {
+              if (key === "shoelace" && isShoelaceFabric(mat.name)) {
                 mat.color.set(0xf0f0f0);
               }
 
-              if (mat.normalMap) {
-                mat.normalScale.set(0.5, 0.5);
+              if (key !== "shoe") {
+                mat.needsUpdate = true;
               }
-
-              mat.needsUpdate = true;
             });
 
             if (isLace) {
               this.shoelaces.push(child);
 
-              const name = child.name.toLowerCase();
+              const name = this.getEditableShoelaceKey(child.name);
 
               if (name === "shoelace_1" || name === "shoelace_2") {
                 this.textTargetLaces.push(child);
               }
+            }
+
+            if (placementKey && this.shoelaceParts[placementKey]) {
+              this.shoelaceParts[placementKey].push(child);
             }
 
             child.castShadow = true;
@@ -500,6 +722,9 @@ window.ShoelaceApp = {
 
           if (key === "shoelace") {
             this.model = model;
+            this.createShoelacePivotGroups();
+            this.applyShoelaceModelTransform(false);
+            this.applyShoelaceMeshTransforms(false, false);
 
             const box = new THREE.Box3().setFromObject(model);
             const center = box.getCenter(new THREE.Vector3());
@@ -542,8 +767,29 @@ window.ShoelaceApp = {
           if (key === "shoe") {
             model.position.set(50, 0, 0);
             model.rotation.y = 7.5;
+            model.updateMatrixWorld(true);
             this.shoe = model;
             this.shoe.visible = false;
+
+            if (window.applyShoePreviewLaceColor) {
+              window.applyShoePreviewLaceColor(
+                this.shoe,
+                this.activeModelColorHex,
+              );
+            }
+
+            this.applyJordanShoeColor(this.activeShoeColor);
+
+            ShoelaceText.updateShoelaceText(
+              this,
+              this.frontTextValue || "",
+              "front",
+            );
+            ShoelaceText.updateShoelaceText(
+              this,
+              this.backTextValue || "",
+              "back",
+            );
           }
 
           this.markModelLoaded(key);
@@ -611,11 +857,24 @@ window.ShoelaceApp = {
 
       loader.load(url, (data) => {
         const rawGroup = new THREE.Group();
+        let shapeCount = 0;
 
         data.paths.forEach((path) => {
-          const shapes = window.SVGLoaderCreateShapes(path);
+          let shapes = window.SVGLoaderCreateShapes(path);
+
+          if (!shapes.length && path.subPaths?.length) {
+            shapes = path.subPaths
+              .filter((subPath) => subPath?.getPoints?.().length > 2)
+              .map((subPath) => {
+                const shape = new THREE.Shape(subPath.getPoints());
+                shape.autoClose = true;
+
+                return shape;
+              });
+          }
 
           shapes.forEach((shape) => {
+            shapeCount += 1;
             const geometry = new THREE.ExtrudeGeometry(shape, {
               depth: 1,
               bevelEnabled: false,
@@ -632,6 +891,10 @@ window.ShoelaceApp = {
           });
         });
 
+        if (!shapeCount) {
+          console.warn("SVG icon did not produce extrudable shapes:", url);
+        }
+
         const box = new THREE.Box3().setFromObject(rawGroup);
         const center = new THREE.Vector3();
         const size = new THREE.Vector3();
@@ -641,9 +904,11 @@ window.ShoelaceApp = {
 
         const maxSize = Math.max(size.x, size.y);
         const SVG_BASE_SIZE = 40;
+        const SVG_DEPTH = 2.5;
 
         if (maxSize > 0) {
-          rawGroup.scale.setScalar(SVG_BASE_SIZE / maxSize);
+          const iconScale = SVG_BASE_SIZE / maxSize;
+          rawGroup.scale.set(iconScale, iconScale, SVG_DEPTH);
         }
 
         // IMPORTANT: center AFTER scaling
@@ -1004,7 +1269,9 @@ window.ShoelaceApp = {
   },
 
   getSideTextValue(side) {
-    return side === "back" ? this.backTextValue || "" : this.frontTextValue || "";
+    return side === "back"
+      ? this.backTextValue || ""
+      : this.frontTextValue || "";
   },
 
   sideHasPersonalization(side) {
@@ -1122,7 +1389,6 @@ window.ShoelaceApp = {
       return;
     }
 
-    this.isCameraAnimating = true;
     this.isBackView = false;
     this.activeTextSide = "front";
 
@@ -1131,7 +1397,6 @@ window.ShoelaceApp = {
     this.goToCameraState("default", () => {
       this.setCameraDragLimits("front");
       this.updateTextInputAvailability();
-      this.isCameraAnimating = false;
     });
   },
 
@@ -1146,7 +1411,6 @@ window.ShoelaceApp = {
       return;
     }
 
-    this.isCameraAnimating = true;
     this.isBackView = true;
     this.activeTextSide = "back";
 
@@ -1155,7 +1419,6 @@ window.ShoelaceApp = {
     this.goToCameraState("back", () => {
       this.setCameraDragLimits("back");
       this.updateTextInputAvailability();
-      this.isCameraAnimating = false;
     });
   },
 
@@ -1220,11 +1483,7 @@ window.ShoelaceApp = {
       addToCartButton.disabled = true;
       addToCartButton.textContent = "Processing...";
 
-      window.showCartStatus(
-        "Step 1/2",
-        "Uploading shoelace PDF...",
-        false,
-      );
+      window.showCartStatus("Step 1/2", "Uploading shoelace PDF...", false);
 
       const pdfBytes = await this.generatePDF();
       const upload = await this.uploadPDF(pdfBytes, configId);
@@ -1350,13 +1609,141 @@ window.ShoelaceApp = {
     const textInput = document.getElementById("shoelace-text");
     const backTextInput = document.getElementById("shoelace-text-back");
     const emojiButtons = document.querySelectorAll(".emoji-btn");
-    const backBtn = document.getElementById("backButton");
+    const summaryBackBtn = document.getElementById("summaryBackButton");
+    const shoeColorButtons = document.querySelectorAll("[data-shoe-color]");
+    const previewBtn = document.getElementById("previewShoeBtn");
     const pdfBtn = document.getElementById("pdfBtn");
     const addToCartBtn = document.getElementById("addToCart");
-    const summaryBtn = document.getElementById("position-btn");
+    const summaryBtn = document.getElementById("summaryBtn");
     const closeSummaryBtn = document.getElementById("closeSummary");
     const summaryModal = document.getElementById("summaryModal");
     const summaryOverlay = document.querySelector(".summary-overlay");
+    const shoelaceModelSliders = document.querySelectorAll(
+      "[data-shoelace-model-slider]",
+    );
+    const shoelaceTextSliders = document.querySelectorAll(
+      "[data-shoelace-text-slider]",
+    );
+    const shoelaceMeshSliders = document.querySelectorAll(
+      "[data-shoelace-mesh-slider]",
+    );
+    const duplicateShoelaceTextSliders = document.querySelectorAll(
+      "[data-duplicate-shoelace-text-slider]",
+    );
+
+    shoelaceModelSliders.forEach((slider) => {
+      const key = slider.dataset.shoelaceModelSlider;
+      const valueLabel = document.querySelector(
+        `[data-shoelace-model-value="${key}"]`,
+      );
+
+      if (!key || !(key in this.shoelaceModelTransform)) return;
+
+      slider.value = this.shoelaceModelTransform[key];
+
+      if (valueLabel) {
+        valueLabel.textContent = slider.value;
+      }
+
+      slider.addEventListener("input", (event) => {
+        this.shoelaceModelTransform[key] = Number(event.target.value || 0);
+
+        if (valueLabel) {
+          valueLabel.textContent = event.target.value;
+        }
+
+        this.applyShoelaceModelTransform(true);
+      });
+    });
+
+    shoelaceTextSliders.forEach((slider) => {
+      const key = slider.dataset.shoelaceTextSlider;
+      const valueLabel = document.querySelector(
+        `[data-shoelace-text-value="${key}"]`,
+      );
+
+      if (!key || !(key in this.shoelaceTextTransform)) return;
+
+      slider.value = this.shoelaceTextTransform[key];
+
+      if (valueLabel) {
+        valueLabel.textContent = slider.value;
+      }
+
+      slider.addEventListener("input", (event) => {
+        this.shoelaceTextTransform[key] = Number(event.target.value || 0);
+
+        if (valueLabel) {
+          valueLabel.textContent = event.target.value;
+        }
+
+        ShoelaceText.updateShoelaceText(
+          this,
+          this.frontTextValue || "",
+          "front",
+        );
+        ShoelaceText.updateShoelaceText(this, this.backTextValue || "", "back");
+      });
+    });
+
+    shoelaceMeshSliders.forEach((slider) => {
+      const meshName = slider.dataset.shoelaceMesh;
+      const key = slider.dataset.shoelaceMeshSlider;
+      const transform = this.shoelaceMeshTransforms[meshName];
+      const valueLabel = document.querySelector(
+        `[data-shoelace-mesh-value="${meshName}.${key}"]`,
+      );
+
+      if (!transform || !key || !(key in transform)) return;
+
+      slider.value = transform[key];
+
+      if (valueLabel) {
+        valueLabel.textContent = slider.value;
+      }
+
+      slider.addEventListener("input", (event) => {
+        transform[key] = Number(event.target.value || 0);
+
+        if (valueLabel) {
+          valueLabel.textContent = event.target.value;
+        }
+
+        this.applyShoelaceMeshTransforms(true);
+      });
+    });
+
+    duplicateShoelaceTextSliders.forEach((slider) => {
+      const meshName = slider.dataset.duplicateShoelaceText;
+      const key = slider.dataset.duplicateShoelaceTextSlider;
+      const transform = this.duplicateShoelaceTextTransforms[meshName];
+      const valueLabel = document.querySelector(
+        `[data-duplicate-shoelace-text-value="${meshName}.${key}"]`,
+      );
+
+      if (!transform || !key || !(key in transform)) return;
+
+      slider.value = transform[key];
+
+      if (valueLabel) {
+        valueLabel.textContent = slider.value;
+      }
+
+      slider.addEventListener("input", (event) => {
+        transform[key] = Number(event.target.value || 0);
+
+        if (valueLabel) {
+          valueLabel.textContent = event.target.value;
+        }
+
+        ShoelaceText.updateShoelaceText(
+          this,
+          this.frontTextValue || "",
+          "front",
+        );
+        ShoelaceText.updateShoelaceText(this, this.backTextValue || "", "back");
+      });
+    });
 
     if (textInput) {
       textInput.addEventListener("focus", () => {
@@ -1397,15 +1784,35 @@ window.ShoelaceApp = {
       });
     }
 
-    if (backBtn) {
-      backBtn.addEventListener("click", () => {
+    if (summaryBackBtn) {
+      summaryBackBtn.addEventListener("click", () => {
         this.backShoe();
       });
     }
 
+    shoeColorButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const color = button.dataset.shoeColor;
+
+        if (!color) return;
+
+        shoeColorButtons.forEach((item) => {
+          item.classList.toggle("active", item === button);
+        });
+
+        this.applyJordanShoeColor(color);
+      });
+    });
+
     if (directionalButton) {
       directionalButton.addEventListener("click", () => {
         this.toggleBackCameraView();
+      });
+    }
+
+    if (previewBtn) {
+      previewBtn.addEventListener("click", () => {
+        this.positionShoe();
       });
     }
 
@@ -1465,6 +1872,560 @@ window.ShoelaceApp = {
         this.closeSummaryModal();
       }
     });
+  },
+
+  disableImageDragging() {
+    const wrapper = document.querySelector(".shoelaces-configurator-wrapper");
+    if (!wrapper) return;
+
+    wrapper.querySelectorAll("img").forEach((image) => {
+      image.draggable = false;
+    });
+
+    wrapper.addEventListener("dragstart", (event) => {
+      if (event.target?.tagName?.toLowerCase() === "img") {
+        event.preventDefault();
+      }
+    });
+  },
+
+  applyShoelaceModelTransform(refreshText = true) {
+    if (!this.model) return;
+
+    this.model.position.set(
+      Number(this.shoelaceModelTransform.x || 0),
+      Number(this.shoelaceModelTransform.y || 0),
+      Number(this.shoelaceModelTransform.z || 0),
+    );
+    this.model.rotation.set(
+      THREE.MathUtils.degToRad(
+        Number(this.shoelaceModelTransform.rotationX || 0),
+      ),
+      THREE.MathUtils.degToRad(
+        Number(this.shoelaceModelTransform.rotationY || 0),
+      ),
+      THREE.MathUtils.degToRad(
+        Number(this.shoelaceModelTransform.rotationZ || 0),
+      ),
+    );
+    this.model.updateMatrixWorld(true);
+
+    console.log("[Shoelace model transform]", this.shoelaceModelTransform);
+
+    if (!refreshText || !window.ShoelaceText) return;
+
+    ShoelaceText.updateShoelaceText(this, this.frontTextValue || "", "front");
+    ShoelaceText.updateShoelaceText(this, this.backTextValue || "", "back");
+  },
+
+  getShoelaceMeshTransform(name, includePreview = this.isShoePreviewActive) {
+    const transform = this.shoelaceMeshTransforms[name] || {};
+    const previewTransform = includePreview
+      ? this.shoelacePreviewMeshTransforms[name] || {}
+      : {};
+
+    return {
+      x: Number(transform.x || 0) + Number(previewTransform.x || 0),
+      y: Number(transform.y || 0) + Number(previewTransform.y || 0),
+      z: Number(transform.z || 0) + Number(previewTransform.z || 0),
+      rotationX:
+        Number(transform.rotationX || 0) +
+        Number(previewTransform.rotationX || 0),
+      rotationY:
+        Number(transform.rotationY || 0) +
+        Number(previewTransform.rotationY || 0),
+      rotationZ:
+        Number(transform.rotationZ || 0) +
+        Number(previewTransform.rotationZ || 0),
+    };
+  },
+
+  applyShoelaceMeshTransforms(
+    refreshText = true,
+    includePreview = this.isShoePreviewActive,
+  ) {
+    Object.entries(this.shoelacePivotGroups).forEach(([name, group]) => {
+      const transform = this.getShoelaceMeshTransform(name, includePreview);
+
+      if (!group || !transform) return;
+
+      const base = group.userData.baseShoelaceTransform;
+      if (!base) return;
+
+      group.position.set(
+        base.position.x + Number(transform.x || 0),
+        base.position.y + Number(transform.y || 0),
+        base.position.z + Number(transform.z || 0),
+      );
+      group.rotation.set(
+        base.rotation.x +
+          THREE.MathUtils.degToRad(Number(transform.rotationX || 0)),
+        base.rotation.y +
+          THREE.MathUtils.degToRad(Number(transform.rotationY || 0)),
+        base.rotation.z +
+          THREE.MathUtils.degToRad(Number(transform.rotationZ || 0)),
+      );
+      group.updateMatrixWorld(true);
+    });
+
+    if (!refreshText || !window.ShoelaceText) return;
+
+    ShoelaceText.updateShoelaceText(this, this.frontTextValue || "", "front");
+    ShoelaceText.updateShoelaceText(this, this.backTextValue || "", "back");
+  },
+
+  setPreviewTextVisibility(visible) {
+    [...this.frontPreviewTextMeshes, ...this.backPreviewTextMeshes].forEach(
+      (mesh) => {
+        mesh.visible = visible;
+      },
+    );
+  },
+
+  getEditableShoelaceKey(name) {
+    const baseName = String(name || "")
+      .toLowerCase()
+      .replace(/\.\d+$/, "");
+
+    if (baseName === "shoelaces_1") return "shoelace_1";
+    if (baseName === "shoelaces_2") return "shoelace_2";
+    if (baseName === "shoelaces_3") return "shoelace_3";
+    if (baseName === "shoelaces_4") return "shoelace_4";
+
+    return baseName;
+  },
+
+  getShoelacePlacementKey(name) {
+    const baseName = String(name || "")
+      .toLowerCase()
+      .replace(/\.\d+$/, "");
+
+    if (baseName === "shoelace_1" || baseName === "shoelaces_1") {
+      return "shoelace_1";
+    }
+
+    if (baseName === "shoelace_2" || baseName === "shoelaces_2") {
+      return "shoelace_2";
+    }
+
+    if (baseName === "aglet_1") return "shoelace_1";
+    if (baseName === "aglet_2") return "shoelace_2";
+    if (baseName === "shoelace_3" || baseName === "shoelaces_3") {
+      return "shoelace_3";
+    }
+
+    if (baseName === "shoelace_4" || baseName === "shoelaces_4") {
+      return "shoelace_4";
+    }
+
+    if (baseName === "aglet_3") return "shoelace_3";
+    if (baseName === "aglet_4") return "shoelace_4";
+
+    return "";
+  },
+
+  getShoelaceTextTransformForLace(laceMesh) {
+    const name = this.getEditableShoelaceKey(laceMesh?.name);
+
+    return (
+      this.duplicateShoelaceTextTransforms[name] || this.shoelaceTextTransform
+    );
+  },
+
+  createShoelacePivotGroups() {
+    if (!this.model) return;
+
+    this.model.updateMatrixWorld(true);
+
+    Object.entries(this.shoelaceParts).forEach(([name, parts]) => {
+      if (!parts?.length || this.shoelacePivotGroups[name]) return;
+
+      const box = new THREE.Box3();
+      parts.forEach((part) => {
+        part.updateWorldMatrix(true, false);
+        box.expandByObject(part);
+      });
+
+      if (box.isEmpty()) return;
+
+      const worldCenter = box.getCenter(new THREE.Vector3());
+      const localCenter = this.model.worldToLocal(worldCenter.clone());
+      const pivot = new THREE.Group();
+
+      pivot.name = `${name}_placement_pivot`;
+      pivot.position.copy(localCenter);
+
+      this.model.add(pivot);
+      pivot.updateWorldMatrix(true, false);
+
+      parts.forEach((part) => {
+        pivot.attach(part);
+      });
+
+      pivot.userData.baseShoelaceTransform = {
+        position: pivot.position.clone(),
+        rotation: pivot.rotation.clone(),
+      };
+
+      this.shoelacePivotGroups[name] = pivot;
+    });
+
+    this.model.updateMatrixWorld(true);
+  },
+
+  clonePreviewShoelaceMaterial(material) {
+    if (!material) return material;
+
+    if (Array.isArray(material)) {
+      return material.map((item) => this.clonePreviewShoelaceMaterial(item));
+    }
+
+    return material.clone ? material.clone() : material;
+  },
+
+  cleanupPreviewDuplicateShoelaces() {
+    this.previewDuplicateShoelaces.forEach((mesh) => {
+      mesh.parent?.remove(mesh);
+      this.shoelaces = this.shoelaces.filter((item) => item !== mesh);
+      this.textTargetLaces = this.textTargetLaces.filter(
+        (item) => item !== mesh,
+      );
+    });
+
+    ["shoelace_3", "shoelace_4"].forEach((name) => {
+      const group = this.shoelacePivotGroups[name];
+
+      if (group?.parent) {
+        group.parent.remove(group);
+      }
+
+      delete this.shoelacePivotGroups[name];
+      this.shoelaceParts[name] = [];
+    });
+
+    this.previewDuplicateShoelaces = [];
+    this.previewDuplicateTextTargetLaces = [];
+  },
+
+  createPreviewDuplicateShoelaces() {
+    if (!this.model || !this.shoe) return;
+
+    this.cleanupPreviewDuplicateShoelaces();
+    this.model.updateMatrixWorld(true);
+    this.shoe.updateMatrixWorld(true);
+
+    const shoeBox = new THREE.Box3().setFromObject(this.shoe);
+    if (shoeBox.isEmpty()) return;
+
+    const shoeCenter = shoeBox.getCenter(new THREE.Vector3());
+    const localMirrorCenter = this.model.worldToLocal(shoeCenter.clone());
+    const clonePairs = [
+      ["shoelace_1", "shoelace_3"],
+      ["shoelace_2", "shoelace_4"],
+    ];
+
+    clonePairs.forEach(([sourceName, targetName]) => {
+      const sourceGroup = this.shoelacePivotGroups[sourceName];
+
+      if (!sourceGroup) return;
+
+      const cloneGroup = sourceGroup.clone(true);
+      const targetNumber = targetName.endsWith("_3") ? "3" : "4";
+
+      cloneGroup.name = `${targetName}_placement_pivot`;
+      cloneGroup.position.x =
+        localMirrorCenter.x - (sourceGroup.position.x - localMirrorCenter.x);
+      cloneGroup.scale.x *= -1;
+
+      cloneGroup.traverse((child) => {
+        if (!child.isMesh) return;
+
+        child.material = this.clonePreviewShoelaceMaterial(child.material);
+        child.castShadow = true;
+        child.receiveShadow = true;
+
+        const rawName = String(child.name || "").toLowerCase();
+
+        if (rawName.includes("shoelace")) {
+          child.name = `shoelace_${targetNumber}`;
+          this.shoelaces.push(child);
+          this.textTargetLaces.push(child);
+          this.previewDuplicateShoelaces.push(child);
+          this.previewDuplicateTextTargetLaces.push(child);
+        } else if (rawName.includes("aglet")) {
+          child.name = `Aglet_${targetNumber}`;
+        }
+
+        this.shoelaceParts[targetName].push(child);
+      });
+
+      this.model.add(cloneGroup);
+      cloneGroup.userData.baseShoelaceTransform = {
+        position: cloneGroup.position.clone(),
+        rotation: cloneGroup.rotation.clone(),
+      };
+      this.shoelacePivotGroups[targetName] = cloneGroup;
+    });
+
+    this.model.updateMatrixWorld(true);
+  },
+
+  getEditableShoelaces() {
+    return this.shoelaces.filter((mesh) => {
+      const name = this.getEditableShoelaceKey(mesh.name);
+
+      return (
+        name === "shoelace_1" ||
+        name === "shoelace_2" ||
+        name === "shoelace_3" ||
+        name === "shoelace_4"
+      );
+    });
+  },
+
+  getShoePreviewLaces() {
+    if (!this.shoe) return [];
+
+    const laces = [];
+
+    this.shoe.traverse((child) => {
+      if (!child.isMesh) return;
+
+      const rawName = String(child.name || "").toLowerCase();
+      const parentName = String(child.parent?.name || "").toLowerCase();
+
+      if (
+        rawName === "object_40.001" ||
+        rawName === "object_40.002" ||
+        parentName === "shoelace_18.001"
+      ) {
+        laces.push(child);
+      }
+    });
+
+    return laces;
+  },
+
+  setShoePreviewLaceVisibility(visible) {
+    this.getShoePreviewLaces().forEach((lace) => {
+      lace.visible = visible;
+    });
+  },
+
+  captureShoelacePreviewState() {
+    if (!this.model || this.shoelacePreviewState) return;
+
+    this.shoelacePreviewState = {
+      position: this.model.position.clone(),
+      rotation: this.model.rotation.clone(),
+      scale: this.model.scale.clone(),
+    };
+  },
+
+  restoreShoelacePreviewState() {
+    if (!this.model || !this.shoelacePreviewState) return;
+
+    this.model.position.copy(this.shoelacePreviewState.position);
+    this.model.rotation.copy(this.shoelacePreviewState.rotation);
+    this.model.scale.copy(this.shoelacePreviewState.scale);
+    this.model.updateMatrixWorld(true);
+    this.shoelacePreviewState = null;
+  },
+
+  moveShoelacesToShoePreview() {
+    if (!this.model || !this.shoe) return;
+
+    this.captureShoelacePreviewState();
+    this.restoreShoelacePreviewState();
+    this.captureShoelacePreviewState();
+
+    this.shoe.updateMatrixWorld(true);
+    this.model.updateMatrixWorld(true);
+
+    const sourceMeshes = this.getEditableShoelaces();
+    const targetMeshes = this.getShoePreviewLaces();
+
+    if (!sourceMeshes.length) return;
+
+    const sourceBox = new THREE.Box3();
+    const targetBox = new THREE.Box3();
+
+    sourceMeshes.forEach((mesh) => sourceBox.expandByObject(mesh));
+
+    if (targetMeshes.length) {
+      targetMeshes.forEach((mesh) => targetBox.expandByObject(mesh));
+    } else {
+      targetBox.setFromObject(this.shoe);
+    }
+
+    if (sourceBox.isEmpty() || targetBox.isEmpty()) return;
+
+    const sourceCenter = sourceBox.getCenter(new THREE.Vector3());
+    const targetCenter = targetBox.getCenter(new THREE.Vector3());
+    const delta = targetCenter.sub(sourceCenter);
+
+    this.model.position.add(delta);
+    this.model.updateMatrixWorld(true);
+  },
+
+  showPreviewOptionsPanel() {
+    const product = document.getElementById("productOptionsAccordion");
+    const summary = document.getElementById("summaryOptionsAccordion");
+
+    if (!product || !summary) return;
+
+    product.classList.add("fade-out");
+
+    setTimeout(() => {
+      product.classList.add("hidden");
+      product.classList.remove("fade-out");
+
+      summary.classList.remove("hidden");
+
+      requestAnimationFrame(() => {
+        summary.classList.remove("fade-out");
+      });
+    }, 600);
+  },
+
+  showProductOptionsPanel() {
+    const product = document.getElementById("productOptionsAccordion");
+    const summary = document.getElementById("summaryOptionsAccordion");
+
+    if (!product || !summary) return;
+
+    summary.classList.add("fade-out");
+
+    setTimeout(() => {
+      summary.classList.add("hidden");
+
+      product.classList.remove("hidden");
+
+      requestAnimationFrame(() => {
+        product.classList.remove("fade-out");
+      });
+    }, 600);
+  },
+
+  positionShoe() {
+    if (!this.shoe) return;
+
+    const wrapper = document.querySelector(".shoelaces-configurator-wrapper");
+    wrapper?.classList.add("preview-mode");
+    this.isShoePreviewActive = true;
+    this.setPreviewLighting();
+    this.showPreviewOptionsPanel();
+
+    this.renderer.shadowMap.enabled = true;
+
+    if (this.dirLight) {
+      this.dirLight.castShadow = true;
+      this.dirLight.shadow.needsUpdate = true;
+    }
+
+    if (this.floor) {
+      this.floor.visible = true;
+      this.floor.receiveShadow = true;
+    }
+
+    if (this.shoe) {
+      this.shoe.updateMatrixWorld(true);
+
+      if (window.applyShoePreviewLaceColor) {
+        window.applyShoePreviewLaceColor(this.shoe, this.activeModelColorHex);
+      }
+
+      this.applyJordanShoeColor(this.activeShoeColor);
+
+      ShoelaceText.updateShoelaceText(this, this.frontTextValue || "", "front");
+      ShoelaceText.updateShoelaceText(this, this.backTextValue || "", "back");
+
+      this.shoe.visible = true;
+      this.shoe.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+    }
+
+    this.moveShoelacesToShoePreview();
+    this.setShoePreviewLaceVisibility(true);
+    this.applyShoelaceMeshTransforms(false, true);
+    this.createPreviewDuplicateShoelaces();
+    this.applyShoelaceMeshTransforms(false, true);
+
+    this.shoelaces.forEach((lace) => {
+      lace.visible = true;
+      lace.castShadow = true;
+      lace.receiveShadow = true;
+    });
+
+    ShoelaceText.updateShoelaceText(this, this.frontTextValue || "", "front");
+    ShoelaceText.updateShoelaceText(this, this.backTextValue || "", "back");
+
+    this.setPreviewTextVisibility(true);
+
+    const box = new THREE.Box3().setFromObject(this.shoe);
+    const center = box.getCenter(new THREE.Vector3());
+
+    this.cameraStates.preview = {
+      position: center.clone().add(new THREE.Vector3(-10, 6, 8)),
+      target: center.clone(),
+    };
+
+    this.unlockCameraDragLimits();
+
+    this.goToCameraState("preview", () => {
+      this.unlockCameraDragLimits();
+    });
+  },
+
+  backShoe() {
+    const wrapper = document.querySelector(".shoelaces-configurator-wrapper");
+    wrapper?.classList.remove("preview-mode");
+    this.isShoePreviewActive = false;
+    this.isBackView = false;
+    this.activeTextSide = "front";
+    this.showProductOptionsPanel();
+    this.setPreviewTextVisibility(false);
+    this.restoreConfiguratorLighting();
+    this.restoreShoelacePreviewState();
+    this.setShoePreviewLaceVisibility(true);
+    this.cleanupPreviewDuplicateShoelaces();
+    this.applyShoelaceMeshTransforms(false, false);
+
+    ShoelaceText.updateShoelaceText(this, this.frontTextValue || "", "front");
+    ShoelaceText.updateShoelaceText(this, this.backTextValue || "", "back");
+
+    this.goToCameraState("default", () => {
+      this.setCameraDragLimits("front");
+      this.updateTextInputAvailability();
+    });
+
+    this.renderer.shadowMap.enabled = true;
+
+    if (this.dirLight) {
+      this.dirLight.castShadow = true;
+      this.dirLight.shadow.needsUpdate = true;
+    }
+
+    if (this.floor) {
+      this.floor.visible = true;
+      this.floor.receiveShadow = true;
+    }
+
+    this.shoelaces.forEach((lace) => {
+      lace.visible = true;
+      lace.castShadow = true;
+      lace.receiveShadow = true;
+    });
+
+    if (this.shoe) {
+      this.shoe.visible = false;
+    }
+
+    this.updateTextInputAvailability();
   },
 
   onResize() {

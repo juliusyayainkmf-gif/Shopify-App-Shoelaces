@@ -135,144 +135,250 @@ window.ShoelaceText = {
       app.backTextValue = text;
     }
 
-    if (!app.font || !app.textTargetLaces.length) return;
+    if (!app.font) return;
 
     const meshListName =
       side === "front" ? "frontTextMeshes" : "backTextMeshes";
+    const clearMeshes = (listName) => {
+      if (!app[listName]) app[listName] = [];
 
-    app[meshListName].forEach((mesh) => {
-      app.scene.remove(mesh);
-    });
+      app[listName].forEach((mesh) => {
+        app.scene.remove(mesh);
+      });
 
-    app[meshListName] = [];
+      app[listName] = [];
+    };
+
+    clearMeshes(meshListName);
+    clearMeshes(
+      side === "front" ? "frontPreviewTextMeshes" : "backPreviewTextMeshes",
+    );
 
     if (!text.trim()) return;
 
     const parts = this.splitTextAndIcons(app, text);
 
-    for (const lace of app.textTargetLaces) {
-      const wrapper = new THREE.Group();
-      const group = new THREE.Group();
-      wrapper.add(group);
+    const renderOnLaces = async (
+      laces,
+      listName,
+      visible,
+      useTextControls,
+    ) => {
+      if (!laces?.length) return;
 
-      let offsetX = 0;
+      for (const lace of laces) {
+        const wrapper = new THREE.Group();
+        const group = new THREE.Group();
+        wrapper.add(group);
+        wrapper.visible = visible;
 
-      for (const part of parts) {
-        if (part.type === "space") {
-          offsetX += 0.08 * part.value.length;
+        let offsetX = 0;
+
+        for (const part of parts) {
+          if (part.type === "space") {
+            offsetX += 0.08 * part.value.length;
+          }
+
+          if (part.type === "text") {
+            const geometry = new window.TextGeometry(part.value, {
+              font: app.font,
+              size: 0.2,
+              height: 0.01,
+              curveSegments: 12,
+            });
+
+            geometry.computeBoundingBox();
+
+            const box = geometry.boundingBox;
+            const width = box.max.x - box.min.x;
+
+            const mesh = new THREE.Mesh(
+              geometry,
+              new THREE.MeshStandardMaterial({
+                color: textColor || "#111111",
+                roughness: 0.5,
+                metalness: 0.1,
+                depthTest: true,
+                depthWrite: true,
+              }),
+            );
+
+            mesh.userData.type = "text";
+            mesh.userData.side = side;
+
+            mesh.position.x = offsetX;
+            group.add(mesh);
+
+            offsetX += width + 0.03;
+          }
+
+          if (part.type === "icon") {
+            const icon = app.iconRegistry[part.value];
+            const mesh = await app.createIconMesh(part.value);
+
+            if (!mesh || !icon) continue;
+
+            mesh.userData.type = "emoji";
+            mesh.userData.side = side;
+
+            mesh.traverse((child) => {
+              if (child.isMesh && child.material && child.material.color) {
+                child.userData.type = "emoji";
+                child.userData.side = side;
+                child.material = child.material.clone();
+                child.material.color.set(emojiColor || "#111111");
+                child.material.needsUpdate = true;
+              }
+            });
+
+            mesh.scale.set(icon.scale, icon.scale, icon.scale);
+
+            mesh.position.x = offsetX + icon.width / 2 + icon.x;
+            mesh.position.y = icon.y;
+            mesh.position.z = icon.z;
+
+            mesh.rotation.set(icon.rotationX, icon.rotationY, icon.rotationZ);
+
+            group.add(mesh);
+
+            offsetX += icon.width;
+          }
         }
 
-        if (part.type === "text") {
-          const geometry = new window.TextGeometry(part.value, {
-            font: app.font,
-            size: 0.2,
-            height: 0.01,
-            curveSegments: 12,
-          });
+        group.position.x = -offsetX;
 
-          geometry.computeBoundingBox();
+        app[listName].push(wrapper);
 
-          const box = geometry.boundingBox;
-          const width = box.max.x - box.min.x;
-
-          const mesh = new THREE.Mesh(
-            geometry,
-            new THREE.MeshStandardMaterial({
-              color: textColor || "#111111",
-              roughness: 0.5,
-              metalness: 0.1,
-              depthTest: true,
-              depthWrite: true,
-            }),
-          );
-
-          mesh.userData.type = "text";
-          mesh.userData.side = side;
-
-          mesh.position.x = offsetX;
-          group.add(mesh);
-
-          offsetX += width + 0.03;
-        }
-
-        if (part.type === "icon") {
-          const icon = app.iconRegistry[part.value];
-          const mesh = await app.createIconMesh(part.value);
-
-          if (!mesh || !icon) continue;
-
-          mesh.userData.type = "emoji";
-          mesh.userData.side = side;
-
-          mesh.traverse((child) => {
-            if (child.isMesh && child.material && child.material.color) {
-              child.userData.type = "emoji";
-              child.userData.side = side;
-              child.material = child.material.clone();
-              child.material.color.set(emojiColor || "#111111");
-              child.material.needsUpdate = true;
-            }
-          });
-
-          mesh.scale.set(icon.scale, icon.scale, icon.scale);
-
-          mesh.position.x = offsetX + icon.width / 2 + icon.x;
-          mesh.position.y = icon.y;
-          mesh.position.z = icon.z;
-
-          mesh.rotation.set(icon.rotationX, icon.rotationY, icon.rotationZ);
-
-          group.add(mesh);
-
-          offsetX += icon.width;
-        }
+        this.shrinkwrapTextToLace(
+          app,
+          wrapper,
+          lace,
+          side,
+          useTextControls,
+        );
+        wrapper.visible = visible;
       }
+    };
 
-      group.position.x = -offsetX;
-
-      app[meshListName].push(wrapper);
-
-      this.shrinkwrapTextToLace(app, wrapper, lace, side);
-    }
+    await renderOnLaces(app.textTargetLaces, meshListName, true, true);
   },
 
-  shrinkwrapTextToLace(app, textMesh, laceMesh, side = "front") {
+  shrinkwrapTextToLace(
+    app,
+    textMesh,
+    laceMesh,
+    side = "front",
+    useTextControls = true,
+  ) {
     if (!textMesh || !laceMesh) return;
 
+    const laceName = app.getEditableShoelaceKey?.(laceMesh.name) || "";
+    const isDuplicateLace =
+      laceName === "shoelace_3" || laceName === "shoelace_4";
+    const placementSide = isDuplicateLace
+      ? side === "front"
+        ? "front"
+        : "back"
+      : side === "front"
+        ? "back"
+        : "front";
+
+    laceMesh.updateWorldMatrix(true, false);
     app.scene.add(textMesh);
 
-    const box = new THREE.Box3().setFromObject(laceMesh);
+    const worldQuaternion = laceMesh.getWorldQuaternion(
+      new THREE.Quaternion(),
+    );
+    const localCenter = new THREE.Vector3();
+    let localBox = null;
 
-    const centerX = (box.min.x + box.max.x) / 2;
-    const centerY = box.min.y + 0.5;
-    const centerZ = (box.min.z + box.max.z) / 2;
+    if (laceMesh.geometry) {
+      if (!laceMesh.geometry.boundingBox) {
+        laceMesh.geometry.computeBoundingBox();
+      }
+
+      localBox = laceMesh.geometry.boundingBox;
+      localBox.getCenter(localCenter);
+      localCenter.y = localBox.min.y + 0.5;
+    } else {
+      new THREE.Box3().setFromObject(laceMesh).getCenter(localCenter);
+      laceMesh.worldToLocal(localCenter);
+    }
+
+    const center = laceMesh.localToWorld(localCenter.clone());
+    const laceAcross = new THREE.Vector3(1, 0, 0)
+      .applyQuaternion(worldQuaternion)
+      .normalize();
+    const laceUp = new THREE.Vector3(0, 1, 0)
+      .applyQuaternion(worldQuaternion)
+      .normalize();
+    const frontNormal = new THREE.Vector3(0, 0, 1)
+      .applyQuaternion(worldQuaternion)
+      .normalize();
 
     let rayOrigin;
     let rayDirection;
+    let surfaceNormal;
 
-    if (side === "front") {
-      // Front side ray
-      rayOrigin = new THREE.Vector3(centerX, centerY, centerZ + 5);
-      rayDirection = new THREE.Vector3(0, 0, -1);
+    if (placementSide === "front") {
+      surfaceNormal = frontNormal;
     } else {
-      // Back side ray
-      rayOrigin = new THREE.Vector3(centerX, centerY, centerZ - 5);
-      rayDirection = new THREE.Vector3(0, 0, 1);
+      surfaceNormal = frontNormal.clone().negate();
     }
+
+    rayOrigin = center.clone().add(surfaceNormal.clone().multiplyScalar(5));
+    rayDirection = surfaceNormal.clone().negate();
 
     const raycaster = new THREE.Raycaster(rayOrigin, rayDirection);
     const hits = raycaster.intersectObject(laceMesh, true);
+    const laceTextOffset = placementSide === "front" ? -0.25 : -0.15;
+    const textTransform =
+      app.getShoelaceTextTransformForLace?.(laceMesh) ||
+      app.shoelaceTextTransform ||
+      {};
+    const applyTextTransform = () => {
+      if (side === "front") {
+        textMesh.quaternion.copy(worldQuaternion);
+        textMesh.rotateZ(-Math.PI / 2);
+      } else {
+        textMesh.quaternion.copy(worldQuaternion);
+        textMesh.rotateY(Math.PI);
+        textMesh.rotateZ(-Math.PI / 2);
+      }
+
+      if (!useTextControls) return;
+
+      const depthOffset = Number(textTransform.z || 0);
+      const depthDirection =
+        depthOffset < 0 ? rayDirection.clone() : surfaceNormal.clone();
+      const sideXOffset =
+        side === "back"
+          ? Number(textTransform.backX ?? textTransform.x ?? 0)
+          : Number(textTransform.x || 0);
+
+      textMesh.position
+        .add(laceAcross.clone().multiplyScalar(sideXOffset))
+        .add(laceUp.clone().multiplyScalar(Number(textTransform.y || 0)))
+        .add(depthDirection.multiplyScalar(Math.abs(depthOffset)));
+
+      textMesh.rotateX(
+        THREE.MathUtils.degToRad(Number(textTransform.rotationX || 0)),
+      );
+      textMesh.rotateY(
+        THREE.MathUtils.degToRad(Number(textTransform.rotationY || 0)),
+      );
+      textMesh.rotateZ(
+        THREE.MathUtils.degToRad(Number(textTransform.rotationZ || 0)),
+      );
+    };
 
     if (!hits.length) {
-      textMesh.position.copy(laceMesh.position);
+      textMesh.position.copy(center);
+      textMesh.position
+        .add(surfaceNormal.clone().multiplyScalar(0.002))
+        .add(laceAcross.clone().multiplyScalar(laceTextOffset));
 
-      if (side === "front") {
-        textMesh.position.z += 0.05;
-        textMesh.rotation.set(0, 0, -Math.PI / 2);
-      } else {
-        textMesh.position.z -= 0.05;
-        textMesh.rotation.set(0, Math.PI, -Math.PI / 2);
-      }
+      applyTextTransform();
 
       return;
     }
@@ -281,16 +387,18 @@ window.ShoelaceText = {
 
     textMesh.position.copy(hit.point);
 
-    if (side === "front") {
-      textMesh.position.add(hit.face.normal.clone().multiplyScalar(-0.05));
-      textMesh.position.x += -0.05;
-      textMesh.rotation.set(0, 0, -Math.PI / 2);
+    if (placementSide === "front") {
+      textMesh.position
+        .add(surfaceNormal.clone().multiplyScalar(0.002))
+        .add(laceAcross.clone().multiplyScalar(laceTextOffset));
+      applyTextTransform();
     } else {
-      textMesh.position.add(hit.face.normal.clone().multiplyScalar(0.05));
-      textMesh.position.x += 0.15;
+      textMesh.position
+        .add(surfaceNormal.clone().multiplyScalar(0.002))
+        .add(laceAcross.clone().multiplyScalar(laceTextOffset));
 
       // Flip text so it faces the back camera
-      textMesh.rotation.set(0, Math.PI, -Math.PI / 2);
+      applyTextTransform();
     }
   },
 };
