@@ -1,4 +1,4 @@
-import { Buffer } from "node:buffer";
+import crypto from "node:crypto";
 import process from "node:process";
 import { authenticate } from "../shopify.server";
 
@@ -85,6 +85,16 @@ function safePublicId(value) {
     .slice(0, 80);
 }
 
+function cloudinarySignature(params, apiSecret) {
+  const payload = Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+
+  return crypto.createHash("sha1").update(`${payload}${apiSecret}`).digest("hex");
+}
+
 async function uploadToCloudinary({ file, configId, shop }) {
   const cloudName = requiredEnv("CLOUDINARY_CLOUD_NAME");
   const apiKey = requiredEnv("CLOUDINARY_API_KEY");
@@ -92,24 +102,31 @@ async function uploadToCloudinary({ file, configId, shop }) {
   const folder = process.env.CLOUDINARY_PDF_FOLDER || "shoelaces-configurations";
   const publicId =
     safePublicId(configId) || `shoelace-${Date.now()}-${crypto.randomUUID()}`;
+  const timestamp = Math.floor(Date.now() / 1000);
+  const uploadParams = {
+    folder,
+    public_id: publicId,
+    overwrite: "false",
+    tags: "shoelaces,pdf,cart-upload",
+    context: `shop=${shop}|config_id=${publicId}`,
+    timestamp,
+  };
 
   const uploadForm = new FormData();
   uploadForm.append("file", file, `${publicId}.pdf`);
-  uploadForm.append("folder", folder);
-  uploadForm.append("public_id", publicId);
-  uploadForm.append("overwrite", "false");
-  uploadForm.append("resource_type", "image");
-  uploadForm.append("tags", "shoelaces,pdf,cart-upload");
-  uploadForm.append("context", `shop=${shop}|config_id=${publicId}`);
+  Object.entries(uploadParams).forEach(([key, value]) => {
+    uploadForm.append(key, String(value));
+  });
+  uploadForm.append("api_key", apiKey);
+  uploadForm.append(
+    "signature",
+    cloudinarySignature(uploadParams, apiSecret),
+  );
 
-  const credentials = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
     {
       method: "POST",
-      headers: {
-        Authorization: `Basic ${credentials}`,
-      },
       body: uploadForm,
     },
   );
@@ -164,7 +181,15 @@ export const action = async ({ request }) => {
     });
   } catch (error) {
     if (error instanceof Response) {
-      return error;
+      const message = await error.text();
+
+      return json(
+        {
+          ok: false,
+          error: message || "PDF upload failed.",
+        },
+        { status: error.status || 500 },
+      );
     }
 
     console.error("PDF upload failed:", error);

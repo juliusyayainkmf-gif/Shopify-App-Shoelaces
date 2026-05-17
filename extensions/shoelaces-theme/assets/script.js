@@ -171,6 +171,24 @@ window.ShoelaceApp = {
   pdfFrontCamera: null,
   pdfBackCamera: null,
 
+  activeAgletStyle: "default",
+  activeAgletColor: "",
+  activeAgletColorName: "Default",
+  agletMeshes: [],
+  agletStyles: {
+    normal: ["flat"],
+    default: ["default"],
+    classic: ["classic"],
+    bullet: ["bullet"],
+  },
+  agletStyleLabels: {
+    none: "None",
+    normal: "Normal Aglet",
+    default: "Default Aglet",
+    classic: "Classic Aglet",
+    bullet: "Bullet Aglet",
+  },
+
   models: {
     shoelace: config.models.small,
     shoe: config.models.shoe,
@@ -630,6 +648,7 @@ window.ShoelaceApp = {
       shoelace_4: [],
     };
     this.shoelacePivotGroups = {};
+    this.agletMeshes = [];
     this.previewDuplicateShoelaces = [];
     this.previewDuplicateTextTargetLaces = [];
     const modelEntries = Object.entries(this.models || {}).filter(
@@ -658,21 +677,7 @@ window.ShoelaceApp = {
           console.log("Loaded model:", key, gltf);
 
           const model = gltf.scene;
-          console.group(`[Shoelaces Configurator] ${key} mesh names`);
-          model.traverse((child) => {
-            if (!child.isMesh) return;
-
-            const materials = Array.isArray(child.material)
-              ? child.material
-              : [child.material];
-
-            console.log({
-              mesh: child.name || "(unnamed mesh)",
-              parent: child.parent?.name || "(no parent)",
-              materials: materials.map((mat) => mat?.name || "(unnamed material)"),
-            });
-          });
-          console.groupEnd();
+          this.logModelMeshes(key, model);
 
           model.traverse((child) => {
             if (!child.isMesh) return;
@@ -714,6 +719,11 @@ window.ShoelaceApp = {
               this.shoelaceParts[placementKey].push(child);
             }
 
+            if (key === "shoelace") {
+              this.registerAgletMesh(child);
+              this.updateAgletMaterial(child);
+            }
+
             child.castShadow = true;
             child.receiveShadow = true;
           });
@@ -722,6 +732,8 @@ window.ShoelaceApp = {
 
           if (key === "shoelace") {
             this.model = model;
+            this.applyAgletStyle(this.activeAgletStyle);
+            this.applyAgletColor(this.activeAgletColor, this.activeAgletColorName);
             this.createShoelacePivotGroups();
             this.applyShoelaceModelTransform(false);
             this.applyShoelaceMeshTransforms(false, false);
@@ -801,6 +813,154 @@ window.ShoelaceApp = {
         },
       );
     });
+  },
+
+  logModelMeshes(key, model) {
+    const meshes = [];
+
+    model.traverse((child) => {
+      if (!child.isMesh) return;
+
+      const materials = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+
+      meshes.push({
+        mesh: child.name || "(unnamed mesh)",
+        parent: child.parent?.name || "(no parent)",
+        visible: child.visible,
+        materials: materials
+          .map((mat) => mat?.name || "(unnamed material)")
+          .join(", "),
+        geometry: child.geometry?.type || "(no geometry)",
+      });
+    });
+
+    console.group(`[Shoelaces Configurator] ${key} meshes (${meshes.length})`);
+    console.table(meshes);
+    console.groupEnd();
+  },
+
+  normalizeAgletName(name) {
+    return String(name || "")
+      .toLowerCase()
+      .replace(/\.[0-9]+$/, "")
+      .trim();
+  },
+
+  getAgletStyleFromNode(node) {
+    let current = node;
+
+    while (current) {
+      const normalized = this.normalizeAgletName(current.name);
+
+      if (normalized) {
+        const style = Object.entries(this.agletStyles).find(([, meshNames]) =>
+          meshNames.some((styleName) =>
+            normalized === styleName || normalized.includes(styleName),
+          ),
+        )?.[0];
+
+        if (style) {
+          return style;
+        }
+      }
+
+      current = current.parent;
+    }
+
+    return "";
+  },
+
+  registerAgletMesh(mesh) {
+    if (!mesh?.isMesh) return;
+
+    const style = this.getAgletStyleFromNode(mesh);
+
+    if (!style) return;
+
+    mesh.userData.agletStyle = style;
+    this.agletMeshes.push(mesh);
+  },
+
+  updateAgletMaterial(mesh) {
+    if (!mesh?.isMesh || !mesh.material) return;
+
+    const style = this.getAgletStyleFromNode(mesh);
+    if (!style) return;
+
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+    materials.forEach((material, index) => {
+      if (!material) return;
+
+      const color = material.color?.clone() || new THREE.Color(0x666666);
+      if (color.r + color.g + color.b < 0.15) {
+        color.setHex(0x444444);
+      }
+
+      const newMaterial = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.35,
+        metalness: 0.7,
+        emissive: new THREE.Color(0x0a0a0a),
+        emissiveIntensity: 0.2,
+        side: material.side || THREE.FrontSide,
+        transparent: material.transparent,
+        opacity: material.opacity,
+        map: material.map || null,
+        normalMap: material.normalMap || null,
+        aoMap: material.aoMap || null,
+        metalnessMap: material.metalnessMap || null,
+        roughnessMap: material.roughnessMap || null,
+        alphaMap: material.alphaMap || null,
+      });
+
+      if (Array.isArray(mesh.material)) {
+        mesh.material[index] = newMaterial;
+      } else {
+        mesh.material = newMaterial;
+      }
+    });
+  },
+
+  setMeshColor(mesh, color) {
+    if (!mesh?.material || !color) return;
+
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+    materials.forEach((material) => {
+      if (!material?.color) return;
+
+      material.color.set(color);
+      material.needsUpdate = true;
+    });
+  },
+
+  applyAgletStyle(style = "default") {
+    const nextStyle = this.agletStyleLabels[style] ? style : "default";
+
+    this.activeAgletStyle = nextStyle;
+
+    this.agletMeshes.forEach((mesh) => {
+      mesh.visible =
+        nextStyle !== "none" && mesh.userData.agletStyle === nextStyle;
+    });
+  },
+
+  applyAgletColor(color, colorName = "") {
+    if (!color) return;
+
+    this.activeAgletColor = color;
+    this.activeAgletColorName = colorName || color;
+
+    this.agletMeshes.forEach((mesh) => {
+      this.setMeshColor(mesh, color);
+    });
+  },
+
+  getAgletStyleLabel() {
+    return this.agletStyleLabels[this.activeAgletStyle] || "Default Aglet";
   },
 
   setupIconsFromButtons() {
@@ -1176,6 +1336,11 @@ window.ShoelaceApp = {
     const data = [
       ["Model", "Flat Shoelaces"],
       ["Main Color", this.activeColor || "N/a"],
+      ["Aglet Style", this.getAgletStyleLabel()],
+      [
+        "Aglet Color",
+        this.activeAgletStyle === "none" ? "N/a" : this.activeAgletColorName,
+      ],
 
       ["Front Text", this.frontTextValue || "N/a"],
       ["Front Text Color", this.getTextColorSummary("front")],
@@ -1343,10 +1508,22 @@ window.ShoelaceApp = {
       body: formData,
     });
 
-    const result = await response.json().catch(() => null);
+    const responseText = await response.text();
+    let result = null;
+
+    try {
+      result = responseText ? JSON.parse(responseText) : null;
+    } catch (error) {
+      console.error("PDF upload returned a non-JSON response:", responseText);
+    }
 
     if (!response.ok || !result?.ok) {
-      throw new Error(result?.error || "Unable to upload PDF.");
+      const errorMessage =
+        result?.error ||
+        responseText ||
+        `PDF upload failed with status ${response.status}.`;
+
+      throw new Error(errorMessage);
     }
 
     return result.upload;
@@ -1551,6 +1728,9 @@ window.ShoelaceApp = {
 
       Model: "Flat Shoelaces",
       "Main Color": this.activeColor || "N/a",
+      "Aglet Style": this.getAgletStyleLabel(),
+      "Aglet Color":
+        this.activeAgletStyle === "none" ? "N/a" : this.activeAgletColorName,
 
       "Front Text": this.frontTextValue || "N/a",
       "Front Text Color": this.getTextColorSummary("front"),
@@ -1618,6 +1798,7 @@ window.ShoelaceApp = {
     const closeSummaryBtn = document.getElementById("closeSummary");
     const summaryModal = document.getElementById("summaryModal");
     const summaryOverlay = document.querySelector(".summary-overlay");
+    const agletStyleButtons = document.querySelectorAll(".aglet-style-btn");
     const shoelaceModelSliders = document.querySelectorAll(
       "[data-shoelace-model-slider]",
     );
@@ -1801,6 +1982,22 @@ window.ShoelaceApp = {
         });
 
         this.applyJordanShoeColor(color);
+      });
+    });
+
+    agletStyleButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const style = button.dataset.agletStyle || "default";
+
+        agletStyleButtons.forEach((item) => {
+          item.classList.remove("btn-dark", "btn-active", "active");
+          item.classList.add("btn-outline-dark");
+        });
+
+        button.classList.remove("btn-outline-dark");
+        button.classList.add("btn-dark", "btn-active", "active");
+
+        this.applyAgletStyle(style);
       });
     });
 
@@ -1996,6 +2193,7 @@ window.ShoelaceApp = {
   },
 
   getShoelacePlacementKey(name) {
+    const rawName = String(name || "").toLowerCase();
     const baseName = String(name || "")
       .toLowerCase()
       .replace(/\.\d+$/, "");
@@ -2010,6 +2208,24 @@ window.ShoelaceApp = {
 
     if (baseName === "aglet_1") return "shoelace_1";
     if (baseName === "aglet_2") return "shoelace_2";
+    if (
+      rawName === "cylinder" ||
+      rawName === "cylinder.002" ||
+      rawName === "plane" ||
+      rawName === "sphere"
+    ) {
+      return "shoelace_1";
+    }
+
+    if (
+      rawName === "cylinder.001" ||
+      rawName === "cylinder.004" ||
+      rawName === "plane.001" ||
+      rawName === "sphere.001"
+    ) {
+      return "shoelace_2";
+    }
+
     if (baseName === "shoelace_3" || baseName === "shoelaces_3") {
       return "shoelace_3";
     }

@@ -411,7 +411,7 @@
                     </div>
                   </div>
 
-                  <div class="d-flex flex-column gap-4" hidden aria-hidden="true">
+                  <div class="d-none flex-column gap-4" aria-hidden="true">
                     <label class="fw-bold py-2 mb-0"> Shoelace Placement: </label>
 
                     {% assign editable_shoelaces = 'shoelace_3,Shoelace 3|shoelace_4,Shoelace 4' | split: '|' %}
@@ -548,7 +548,7 @@
                     {% endfor %}
                   </div>
 
-                  <div class="d-flex flex-column gap-4">
+                  <div class="d-none flex-column gap-4" aria-hidden="true">
                     <label class="fw-bold py-2 mb-0"> Duplicate Text Placement: </label>
 
                     {% assign duplicate_text_shoelaces = 'shoelace_3,Shoelace 3 Text|shoelace_4,Shoelace 4 Text' | split: '|' %}
@@ -727,6 +727,10 @@
                       <button type="button" class="color-target-btn btn btn-outline-dark" data-target="emoji">
                         Emoji
                       </button>
+
+                      <button type="button" class="color-target-btn btn btn-outline-dark" data-target="aglets">
+                        Aglets
+                      </button>
                     </div>
                   </div>
 
@@ -757,6 +761,49 @@
                         <p>No shoelace colors found. Open the app admin once to create default colors.</p>
                       {% endif %}
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion-item custom-shadow mb-3">
+              <h2 class="accordion-header" id="headingAglets">
+                <button
+                  class="accordion-button collapsed py-4 px-4"
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#collapseAglets"
+                  aria-expanded="false"
+                  aria-controls="collapseAglets"
+                >
+                  <h4 class="mb-0">Choose Your Aglets</h4>
+                </button>
+              </h2>
+
+              <div id="collapseAglets" class="accordion-collapse collapse" aria-labelledby="headingAglets">
+                <div class="accordion-body px-4 pb-4 gap-3 d-flex flex-column justify-content-center">
+                  <label class="fw-bold py-2 mb-0"> Aglet Style: </label>
+
+                  <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="aglet-style-btn btn btn-outline-dark option-btn" data-aglet-style="none">
+                      None
+                    </button>
+
+                    <button type="button" class="aglet-style-btn btn btn-outline-dark option-btn" data-aglet-style="normal">
+                      Normal
+                    </button>
+
+                    <button type="button" class="aglet-style-btn btn btn-dark btn-active option-btn active" data-aglet-style="default">
+                      Default
+                    </button>
+
+                    <button type="button" class="aglet-style-btn btn btn-outline-dark option-btn" data-aglet-style="classic">
+                      Classic
+                    </button>
+
+                    <button type="button" class="aglet-style-btn btn btn-outline-dark option-btn" data-aglet-style="bullet">
+                      Bullet
+                    </button>
                   </div>
                 </div>
               </div>
@@ -924,7 +971,7 @@
 <script id="configurator-data" type="application/json">
   {
     "models": {
-      "small": "https://cdn.shopify.com/3d/models/d3a5d9da2c23967a/test3.glb",
+      "small": "https://cdn.shopify.com/3d/models/cf582b7866353f9d/shoelaces.glb",
       "medium": "https://cdn.shopify.com/3d/models/6ee0ab8c088d338d/medium.glb",
       "shoe": "https://cdn.shopify.com/3d/models/e85bce55fb2b66aa/Jordan_Shoes.glb"
     },

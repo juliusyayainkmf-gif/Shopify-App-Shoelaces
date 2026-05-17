@@ -160,6 +160,12 @@ function updateEmojiColorFromColor(color, colorName = "") {
   });
 }
 
+function updateAgletColorFromColor(color, colorName = "") {
+  if (!color || !window.ShoelaceApp?.applyAgletColor) return;
+
+  ShoelaceApp.applyAgletColor(color, colorName);
+}
+
 // =========================
 // Change color depending on selected target
 // =========================
@@ -176,6 +182,7 @@ function updateColorByTarget(button) {
     updateModelColorFromColor(color, colorName);
     updateTextColorFromColor(color, colorName);
     updateEmojiColorFromColor(color, colorName);
+    updateAgletColorFromColor(color, colorName);
   }
 
   if (activeColorTarget === "model") {
@@ -188,6 +195,10 @@ function updateColorByTarget(button) {
 
   if (activeColorTarget === "emoji") {
     updateEmojiColorFromColor(color, colorName);
+  }
+
+  if (activeColorTarget === "aglets") {
+    updateAgletColorFromColor(color, colorName);
   }
 }
 
@@ -206,7 +217,7 @@ document.addEventListener("DOMContentLoaded", function () {
   tooltipTriggerList.forEach((el) => new bootstrap.Tooltip(el));
 });
 
-// target buttons: All / Laces / Text / Emoji
+// target buttons: All / Laces / Text / Emoji / Aglets
 colorTargetButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     activeColorTarget = btn.dataset.target || "all";
