@@ -122,6 +122,40 @@ window.ShoelaceApp = {
       rotationZ: 0,
     },
   },
+  agletMeshTransforms: {
+    aglet_1: {
+      x: -0.93,
+      y: 0,
+      z: -0.01,
+      rotationX: 0,
+      rotationY: 0,
+      rotationZ: 0,
+    },
+    aglet_2: {
+      x: 0.93,
+      y: 0,
+      z: 0.01,
+      rotationX: 0,
+      rotationY: 0,
+      rotationZ: 0,
+    },
+    aglet_3: {
+      x: -0.93,
+      y: 0,
+      z: 0,
+      rotationX: 0,
+      rotationY: 0,
+      rotationZ: 0,
+    },
+    aglet_4: {
+      x: 0.93,
+      y: 0,
+      z: 0.01,
+      rotationX: 0,
+      rotationY: 0,
+      rotationZ: 0,
+    },
+  },
 
   mouseDown: false,
   startX: 0,
@@ -341,6 +375,15 @@ window.ShoelaceApp = {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.physicallyCorrectLights = true;
+
+    if (window.RoomEnvironment) {
+      const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+      this.scene.environment = pmremGenerator.fromScene(
+        new window.RoomEnvironment(),
+        0.04,
+      ).texture;
+      pmremGenerator.dispose();
+    }
 
     // const ambient = new THREE.AmbientLight(0xffffff, 0.4);
     // this.scene.add(ambient);
@@ -735,6 +778,7 @@ window.ShoelaceApp = {
             this.applyAgletStyle(this.activeAgletStyle);
             this.applyAgletColor(this.activeAgletColor, this.activeAgletColorName);
             this.createShoelacePivotGroups();
+            this.attachAgletsToShoelacePivots();
             this.applyShoelaceModelTransform(false);
             this.applyShoelaceMeshTransforms(false, false);
 
@@ -894,17 +938,26 @@ window.ShoelaceApp = {
     materials.forEach((material, index) => {
       if (!material) return;
 
-      const color = material.color?.clone() || new THREE.Color(0x666666);
-      if (color.r + color.g + color.b < 0.15) {
-        color.setHex(0x444444);
+      if (material.map) {
+        material.map.colorSpace = THREE.SRGBColorSpace;
+      }
+
+      const hasColorTexture = Boolean(material.map);
+      const color = hasColorTexture
+        ? new THREE.Color(0xffffff)
+        : material.color?.clone() || new THREE.Color(0xd4af37);
+
+      if (!hasColorTexture && color.r + color.g + color.b < 0.15) {
+        color.setHex(0xd4af37);
       }
 
       const newMaterial = new THREE.MeshStandardMaterial({
         color,
-        roughness: 0.35,
-        metalness: 0.7,
-        emissive: new THREE.Color(0x0a0a0a),
-        emissiveIntensity: 0.2,
+        roughness: material.roughness ?? 0.18,
+        metalness: material.metalness ?? 0.82,
+        envMapIntensity: 3.35,
+        emissive: new THREE.Color(0xfff1c4),
+        emissiveIntensity: 0.08,
         side: material.side || THREE.FrontSide,
         transparent: material.transparent,
         opacity: material.opacity,
@@ -1808,6 +1861,9 @@ window.ShoelaceApp = {
     const shoelaceMeshSliders = document.querySelectorAll(
       "[data-shoelace-mesh-slider]",
     );
+    const agletMeshSliders = document.querySelectorAll(
+      "[data-aglet-mesh-slider]",
+    );
     const duplicateShoelaceTextSliders = document.querySelectorAll(
       "[data-duplicate-shoelace-text-slider]",
     );
@@ -1891,6 +1947,33 @@ window.ShoelaceApp = {
         }
 
         this.applyShoelaceMeshTransforms(true);
+      });
+    });
+
+    agletMeshSliders.forEach((slider) => {
+      const meshName = slider.dataset.agletMesh;
+      const key = slider.dataset.agletMeshSlider;
+      const transform = this.agletMeshTransforms[meshName];
+      const valueLabel = document.querySelector(
+        `[data-aglet-mesh-value="${meshName}.${key}"]`,
+      );
+
+      if (!transform || !key || !(key in transform)) return;
+
+      slider.value = transform[key];
+
+      if (valueLabel) {
+        valueLabel.textContent = slider.value;
+      }
+
+      slider.addEventListener("input", (event) => {
+        transform[key] = Number(event.target.value || 0);
+
+        if (valueLabel) {
+          valueLabel.textContent = event.target.value;
+        }
+
+        this.applyAgletMeshTransforms();
       });
     });
 
@@ -2240,6 +2323,102 @@ window.ShoelaceApp = {
     return "";
   },
 
+  getAgletPlacementKey(node) {
+    let current = node;
+
+    while (current) {
+      const normalizedName = this.normalizeAgletName(current.name);
+      const agletNumberMatch = normalizedName.match(
+        /^(flat|default|classic|bullet|aglet)[_-]([1-4])$/,
+      );
+
+      if (agletNumberMatch) {
+        return `shoelace_${agletNumberMatch[2]}`;
+      }
+
+      const placementKey = this.getShoelacePlacementKey(current.name);
+
+      if (placementKey) return placementKey;
+
+      current = current.parent;
+    }
+
+    return "";
+  },
+
+  getAgletTransformKey(node) {
+    const placementKey =
+      node?.userData?.shoelacePlacementKey || this.getAgletPlacementKey(node);
+    const agletNumberMatch = String(placementKey || "").match(/shoelace_([1-4])/);
+
+    return agletNumberMatch ? `aglet_${agletNumberMatch[1]}` : "";
+  },
+
+  storeAgletBaseTransform(mesh) {
+    if (!mesh?.isMesh) return;
+
+    mesh.userData.baseAgletTransform = {
+      position: mesh.position.clone(),
+      rotation: mesh.rotation.clone(),
+    };
+  },
+
+  attachAgletsToShoelacePivots() {
+    if (!this.model) return;
+
+    this.model.updateMatrixWorld(true);
+
+    this.agletMeshes.forEach((mesh) => {
+      if (!mesh?.isMesh || mesh.userData.agletPivoted) return;
+
+      const placementKey = this.getAgletPlacementKey(mesh);
+      const lacePivot = this.shoelacePivotGroups[placementKey];
+
+      if (!placementKey || !lacePivot) return;
+
+      lacePivot.attach(mesh);
+      mesh.userData.agletPivoted = true;
+      mesh.userData.shoelacePlacementKey = placementKey;
+      this.storeAgletBaseTransform(mesh);
+    });
+
+    this.applyAgletMeshTransforms();
+    this.model.updateMatrixWorld(true);
+  },
+
+  applyAgletMeshTransforms() {
+    this.agletMeshes.forEach((mesh) => {
+      if (!mesh?.isMesh) return;
+
+      if (!mesh.userData.baseAgletTransform) {
+        this.storeAgletBaseTransform(mesh);
+      }
+
+      const transformKey = this.getAgletTransformKey(mesh);
+      const transform = this.isShoePreviewActive
+        ? this.agletMeshTransforms[transformKey] || {}
+        : {};
+      const base = mesh.userData.baseAgletTransform;
+
+      if (!base) return;
+
+      mesh.position.set(
+        base.position.x + Number(transform.x || 0),
+        base.position.y + Number(transform.y || 0),
+        base.position.z + Number(transform.z || 0),
+      );
+      mesh.rotation.set(
+        base.rotation.x +
+          THREE.MathUtils.degToRad(Number(transform.rotationX || 0)),
+        base.rotation.y +
+          THREE.MathUtils.degToRad(Number(transform.rotationY || 0)),
+        base.rotation.z +
+          THREE.MathUtils.degToRad(Number(transform.rotationZ || 0)),
+      );
+      mesh.updateMatrixWorld(true);
+    });
+  },
+
   getShoelaceTextTransformForLace(laceMesh) {
     const name = this.getEditableShoelaceKey(laceMesh?.name);
 
@@ -2303,6 +2482,7 @@ window.ShoelaceApp = {
     this.previewDuplicateShoelaces.forEach((mesh) => {
       mesh.parent?.remove(mesh);
       this.shoelaces = this.shoelaces.filter((item) => item !== mesh);
+      this.agletMeshes = this.agletMeshes.filter((item) => item !== mesh);
       this.textTargetLaces = this.textTargetLaces.filter(
         (item) => item !== mesh,
       );
@@ -2339,6 +2519,7 @@ window.ShoelaceApp = {
       ["shoelace_1", "shoelace_3"],
       ["shoelace_2", "shoelace_4"],
     ];
+    const clonedAglets = [];
 
     clonePairs.forEach(([sourceName, targetName]) => {
       const sourceGroup = this.shoelacePivotGroups[sourceName];
@@ -2372,6 +2553,14 @@ window.ShoelaceApp = {
           child.name = `Aglet_${targetNumber}`;
         }
 
+        if (child.userData.agletStyle) {
+          child.name = `${child.userData.agletStyle}_${targetNumber}`;
+          child.userData.shoelacePlacementKey = targetName;
+          this.storeAgletBaseTransform(child);
+          this.agletMeshes.push(child);
+          clonedAglets.push(child);
+        }
+
         this.shoelaceParts[targetName].push(child);
       });
 
@@ -2383,6 +2572,8 @@ window.ShoelaceApp = {
       this.shoelacePivotGroups[targetName] = cloneGroup;
     });
 
+    this.previewDuplicateShoelaces.push(...clonedAglets);
+    this.applyAgletMeshTransforms();
     this.model.updateMatrixWorld(true);
   },
 
@@ -2569,6 +2760,9 @@ window.ShoelaceApp = {
     this.setShoePreviewLaceVisibility(true);
     this.applyShoelaceMeshTransforms(false, true);
     this.createPreviewDuplicateShoelaces();
+    this.applyAgletStyle(this.activeAgletStyle);
+    this.applyAgletColor(this.activeAgletColor, this.activeAgletColorName);
+    this.applyAgletMeshTransforms();
     this.applyShoelaceMeshTransforms(false, true);
 
     this.shoelaces.forEach((lace) => {
@@ -2610,6 +2804,7 @@ window.ShoelaceApp = {
     this.setShoePreviewLaceVisibility(true);
     this.cleanupPreviewDuplicateShoelaces();
     this.applyShoelaceMeshTransforms(false, false);
+    this.applyAgletMeshTransforms();
 
     ShoelaceText.updateShoelaceText(this, this.frontTextValue || "", "front");
     ShoelaceText.updateShoelaceText(this, this.backTextValue || "", "back");
