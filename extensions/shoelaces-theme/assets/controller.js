@@ -43,6 +43,10 @@ window.applyShoePreviewLaceColor = function (shoe, color) {
   shoe.traverse((child) => {
     if (!child.isMesh || !isShoePreviewLaceMesh(child)) return;
 
+    if (window.ShoelaceApp?.prepareShoelaceSwatchMaterial) {
+      ShoelaceApp.prepareShoelaceSwatchMaterial(child);
+    }
+
     if (Array.isArray(child.material)) {
       child.material.forEach((mat) => applyMaterialColor(mat, color));
     } else {
@@ -52,11 +56,6 @@ window.applyShoePreviewLaceColor = function (shoe, color) {
     didApplyColor = true;
   });
 
-  if (!didApplyColor) {
-    console.warn(
-      "No shoe preview lace meshes matched Object_40.001, Object_40.002, Object_40001, or Object_40002.",
-    );
-  }
 };
 
 // =========================
@@ -69,17 +68,22 @@ function updateModelColorFromColor(color, colorName = "") {
   ShoelaceApp.activeColor = colorName || color;
   ShoelaceApp.activeModelColorHex = color;
 
-  ShoelaceApp.shoelaces.forEach((mesh) => {
-    const name = getEditableShoelaceKey(mesh);
+  const laceMeshes = ShoelaceApp.getEditableShoelaceColorMeshes
+    ? ShoelaceApp.getEditableShoelaceColorMeshes()
+    : ShoelaceApp.shoelaces.filter((mesh) => {
+        const name = getEditableShoelaceKey(mesh);
 
-    // only editable shoelace meshes
-    if (
-      name !== "shoelace_1" &&
-      name !== "shoelace_2" &&
-      name !== "shoelace_3" &&
-      name !== "shoelace_4"
-    ) {
-      return;
+        return (
+          name === "shoelace_1" ||
+          name === "shoelace_2" ||
+          name === "shoelace_3" ||
+          name === "shoelace_4"
+        );
+      });
+
+  laceMeshes.forEach((mesh) => {
+    if (ShoelaceApp.prepareShoelaceSwatchMaterial) {
+      ShoelaceApp.prepareShoelaceSwatchMaterial(mesh);
     }
 
     if (Array.isArray(mesh.material)) {
@@ -90,6 +94,10 @@ function updateModelColorFromColor(color, colorName = "") {
   });
 
   window.applyShoePreviewLaceColor(ShoelaceApp.shoe, color);
+
+  if (ShoelaceApp.syncAgletColors) {
+    ShoelaceApp.syncAgletColors();
+  }
 }
 
 // =========================
@@ -210,12 +218,55 @@ const colorTargetButtons = document.querySelectorAll(".color-target-btn");
 const buttons = document.querySelectorAll(".color-btn");
 const fontButtons = document.querySelectorAll(".font-btn");
 
-document.addEventListener("DOMContentLoaded", function () {
+function initHelpModal() {
   const tooltipTriggerList = document.querySelectorAll(
     '[data-bs-toggle="tooltip"]',
   );
-  tooltipTriggerList.forEach((el) => new bootstrap.Tooltip(el));
-});
+  tooltipTriggerList.forEach((el) => {
+    if (window.bootstrap?.Tooltip) {
+      new bootstrap.Tooltip(el);
+    }
+  });
+
+  const helpBtn = document.getElementById("helpBtn");
+  const helpModal = document.getElementById("helpModal");
+  const closeHelpBtn = document.getElementById("closeHelpModal");
+  const helpOverlay = document.querySelector(".help-modal-overlay");
+  const iconMenuBtn = document.getElementById("iconMenuBtn");
+  const iconContainer = document.querySelector(".icon-container");
+
+  const openHelpModal = () => {
+    helpModal?.classList.add("active");
+    iconContainer?.classList.remove("menu-open");
+    iconMenuBtn?.setAttribute("aria-expanded", "false");
+  };
+
+  const closeHelpModal = () => {
+    helpModal?.classList.remove("active");
+  };
+
+  helpBtn?.addEventListener("click", openHelpModal);
+  closeHelpBtn?.addEventListener("click", closeHelpModal);
+  helpOverlay?.addEventListener("click", closeHelpModal);
+  iconMenuBtn?.addEventListener("click", () => {
+    const isOpen = iconContainer?.classList.toggle("menu-open") || false;
+    iconMenuBtn.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeHelpModal();
+      iconContainer?.classList.remove("menu-open");
+      iconMenuBtn?.setAttribute("aria-expanded", "false");
+    }
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initHelpModal);
+} else {
+  initHelpModal();
+}
 
 // target buttons: All / Laces / Text / Emoji / Aglets
 colorTargetButtons.forEach((btn) => {

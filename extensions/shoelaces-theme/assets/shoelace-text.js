@@ -9,16 +9,14 @@ window.ShoelaceText = {
         this.updateShoelaceText(app, "", "front");
         this.updateShoelaceText(app, "", "back");
       },
-      undefined,
-      (error) => {
-        console.error("Failed to load font:", error);
-      },
     );
   },
 
   splitTextAndIcons(app, text) {
     const parts = [];
-    const icons = Object.values(app.iconRegistry);
+    const icons = Object.values(app.iconRegistry).sort((a, b) => {
+      return String(b.marker).length - String(a.marker).length;
+    });
 
     if (!icons.length) {
       return [{ type: "text", value: text }];
@@ -194,15 +192,15 @@ window.ShoelaceText = {
 
             const mesh = new THREE.Mesh(
               geometry,
-              new THREE.MeshStandardMaterial({
+              new THREE.MeshBasicMaterial({
                 color: textColor || "#111111",
-                roughness: 0.5,
-                metalness: 0.1,
                 depthTest: true,
                 depthWrite: true,
+                toneMapped: false,
               }),
             );
 
+            mesh.material.userData.usesExactSwatchColor = true;
             mesh.userData.type = "text";
             mesh.userData.side = side;
 
@@ -227,6 +225,8 @@ window.ShoelaceText = {
                 child.userData.side = side;
                 child.material = child.material.clone();
                 child.material.color.set(emojiColor || "#111111");
+                child.material.toneMapped = false;
+                child.material.userData.usesExactSwatchColor = true;
                 child.material.needsUpdate = true;
               }
             });

@@ -7,8 +7,6 @@ const VARIANT_ID_WITH_CUSTOMIZATION =
     ? Number(window.SHOELACE_CONFIG.variantId)
     : null;
 
-console.log(VARIANT_ID_WITH_CUSTOMIZATION);
-
 window.ShoelaceApp = {
   canvas: null,
   scene: null,
@@ -42,30 +40,30 @@ window.ShoelaceApp = {
     rotationZ: 0,
   },
   shoelaceTextTransform: {
-    x: 0.54,
-    backX: 0.6,
-    y: 0.01,
-    z: -0.09,
-    rotationX: -90,
+    x: -0.24,
+    backX: -0.1,
+    y: 0.02,
+    z: 0.1,
+    rotationX: 90,
     rotationY: 0,
     rotationZ: 0,
   },
   duplicateShoelaceTextTransforms: {
     shoelace_3: {
-      x: -0.14,
-      backX: -0.20,
+      x: 0.64,
+      backX: 0.5,
       y: 0.01,
-      z: -0.09,
-      rotationX: 90,
+      z: 0.11,
+      rotationX: -90,
       rotationY: 0,
       rotationZ: 0,
     },
     shoelace_4: {
-      x: -0.14,
-      backX: -0.20,
+      x: 0.64,
+      backX: 0.5,
       y: 0.01,
-      z: -0.09,
-      rotationX: 90,
+      z: 0.11,
+      rotationX: -90,
       rotationY: 0,
       rotationZ: 0,
     },
@@ -194,8 +192,12 @@ window.ShoelaceApp = {
   font: null,
   iconRegistry: {},
   iconTemplates: {},
+  customEmojiCounter: 0,
+  customEmojiUploads: {},
   activeTextSide: "front",
   activeShoeColor: "#ffffff",
+  activeColor: "",
+  activeModelColorHex: "#f0f0f0",
 
   frontTextColorName: "Black",
   backTextColorName: "Black",
@@ -207,7 +209,7 @@ window.ShoelaceApp = {
 
   activeAgletStyle: "default",
   activeAgletColor: "",
-  activeAgletColorName: "Default",
+  activeAgletColorName: "",
   agletMeshes: [],
   agletStyles: {
     normal: ["flat"],
@@ -257,11 +259,6 @@ window.ShoelaceApp = {
   markModelLoaded(key) {
     this.modelLoading.loaded += 1;
 
-    console.log(
-      `Model loaded ${this.modelLoading.loaded}/${this.modelLoading.total}:`,
-      key,
-    );
-
     if (this.modelLoading.loaded >= this.modelLoading.total) {
       this.hideLoader();
     }
@@ -272,16 +269,12 @@ window.ShoelaceApp = {
     const configElement = document.getElementById("configurator-data");
 
     if (!configElement) {
-      console.error(
-        "Critical Error: #configurator-data element not found in DOM.",
-      );
       return;
     }
 
     try {
       this.config = JSON.parse(configElement.textContent);
-    } catch (e) {
-      console.error("Critical Error: Could not parse configurator JSON.", e);
+    } catch (error) {
       return;
     }
 
@@ -326,10 +319,6 @@ window.ShoelaceApp = {
       setTimeout(() => {
         loaderEl.style.display = "none";
       }, 400);
-    };
-
-    this.loadingManager.onError = (url) => {
-      console.error("Error loading:", url);
     };
 
     this.loader = new window.GLTFLoader(this.loadingManager);
@@ -416,7 +405,7 @@ window.ShoelaceApp = {
     this.scene.add(ambient);
     this.ambientLight = ambient;
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.15);
     dirLight.position.set(0, 10, 5);
     dirLight.castShadow = true;
 
@@ -435,6 +424,11 @@ window.ShoelaceApp = {
 
     this.scene.add(dirLight);
     this.dirLight = dirLight;
+
+    const backLight = new THREE.DirectionalLight(0xffffff, 1.15);
+    backLight.position.set(0, 10, -5);
+    this.scene.add(backLight);
+    this.backLight = backLight;
   },
 
   setupFloor() {
@@ -464,6 +458,10 @@ window.ShoelaceApp = {
       this.dirLight.position.set(-4, 8, 7);
     }
 
+    if (this.backLight) {
+      this.backLight.intensity = 0.35;
+    }
+
     if (!this.previewHemisphereLight) {
       this.previewHemisphereLight = new THREE.HemisphereLight(
         0xffffff,
@@ -484,8 +482,13 @@ window.ShoelaceApp = {
     }
 
     if (this.dirLight) {
-      this.dirLight.intensity = 2.5;
+      this.dirLight.intensity = 1.15;
       this.dirLight.position.set(0, 10, 5);
+    }
+
+    if (this.backLight) {
+      this.backLight.intensity = 1.15;
+      this.backLight.position.set(0, 10, -5);
     }
 
     if (this.previewHemisphereLight) {
@@ -605,6 +608,7 @@ window.ShoelaceApp = {
 
     this.isBackView = !this.isBackView;
     this.activeTextSide = this.isBackView ? "back" : "front";
+    this.updateDirectionalTooltip();
 
     this.unlockCameraDragLimits();
 
@@ -624,7 +628,6 @@ window.ShoelaceApp = {
   goToCameraState(name, onComplete = null) {
     const state = this.cameraStates[name];
     if (!state) {
-      console.warn(`[Shoelaces Configurator] Missing camera state: ${name}`);
       this.isCameraAnimating = false;
       return false;
     }
@@ -712,13 +715,9 @@ window.ShoelaceApp = {
     };
 
     modelEntries.forEach(([key, modelPath]) => {
-      console.log("Loading model:", key, modelPath);
-
       this.loader.load(
         modelPath,
         (gltf) => {
-          console.log("Loaded model:", key, gltf);
-
           const model = gltf.scene;
           this.logModelMeshes(key, model);
 
@@ -851,8 +850,7 @@ window.ShoelaceApp = {
           this.markModelLoaded(key);
         },
         undefined,
-        (error) => {
-          console.error("Failed to load model:", key, modelPath, error);
+        () => {
           this.markModelLoaded(`${key} failed`);
         },
       );
@@ -880,9 +878,6 @@ window.ShoelaceApp = {
       });
     });
 
-    console.group(`[Shoelaces Configurator] ${key} meshes (${meshes.length})`);
-    console.table(meshes);
-    console.groupEnd();
   },
 
   normalizeAgletName(name) {
@@ -920,10 +915,17 @@ window.ShoelaceApp = {
     if (!mesh?.isMesh) return;
 
     const style = this.getAgletStyleFromNode(mesh);
+    const placementKey = this.getAgletPlacementKey(mesh);
+    const hasAgletPlacement =
+      /aglet_[1-4]/.test(this.normalizeAgletName(mesh.name)) ||
+      /^(flat|default|classic|bullet)[_-][1-4]$/.test(
+        this.normalizeAgletName(mesh.parent?.name),
+      );
 
-    if (!style) return;
+    if (!style && !hasAgletPlacement) return;
 
-    mesh.userData.agletStyle = style;
+    mesh.userData.agletStyle = style || this.activeAgletStyle || "default";
+    mesh.userData.shoelacePlacementKey = placementKey;
     this.agletMeshes.push(mesh);
   },
 
@@ -931,23 +933,39 @@ window.ShoelaceApp = {
     if (!mesh?.isMesh || !mesh.material) return;
 
     const style = this.getAgletStyleFromNode(mesh);
-    if (!style) return;
+    const placementKey = this.getAgletPlacementKey(mesh);
+    const hasAgletPlacement =
+      /aglet_[1-4]/.test(this.normalizeAgletName(mesh.name)) ||
+      /^(flat|default|classic|bullet)[_-][1-4]$/.test(
+        this.normalizeAgletName(mesh.parent?.name),
+      );
+
+    if (!style && !hasAgletPlacement) return;
 
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
 
     materials.forEach((material, index) => {
       if (!material) return;
 
+      const isFixedGrayMaterial =
+        String(material.name || "").toLowerCase() === "material.004";
+
       if (material.map) {
         material.map.colorSpace = THREE.SRGBColorSpace;
       }
 
       const hasColorTexture = Boolean(material.map);
-      const color = hasColorTexture
-        ? new THREE.Color(0xffffff)
-        : material.color?.clone() || new THREE.Color(0xd4af37);
+      const color = isFixedGrayMaterial
+        ? material.color?.clone() || new THREE.Color(0xd4af37)
+        : hasColorTexture
+          ? new THREE.Color(0xffffff)
+          : material.color?.clone() || new THREE.Color(0xd4af37);
 
-      if (!hasColorTexture && color.r + color.g + color.b < 0.15) {
+      if (
+        !isFixedGrayMaterial &&
+        !hasColorTexture &&
+        color.r + color.g + color.b < 0.15
+      ) {
         color.setHex(0xd4af37);
       }
 
@@ -961,13 +979,23 @@ window.ShoelaceApp = {
         side: material.side || THREE.FrontSide,
         transparent: material.transparent,
         opacity: material.opacity,
-        map: material.map || null,
-        normalMap: material.normalMap || null,
-        aoMap: material.aoMap || null,
-        metalnessMap: material.metalnessMap || null,
-        roughnessMap: material.roughnessMap || null,
-        alphaMap: material.alphaMap || null,
+        map: isFixedGrayMaterial ? null : material.map || null,
+        normalMap: isFixedGrayMaterial ? null : material.normalMap || null,
+        aoMap: isFixedGrayMaterial ? null : material.aoMap || null,
+        metalnessMap: isFixedGrayMaterial ? null : material.metalnessMap || null,
+        roughnessMap: isFixedGrayMaterial ? null : material.roughnessMap || null,
+        alphaMap: isFixedGrayMaterial ? null : material.alphaMap || null,
       });
+
+      newMaterial.name = material.name || "";
+
+      newMaterial.userData.agletMaterialDefaults = {
+        roughness: newMaterial.roughness,
+        metalness: newMaterial.metalness,
+        envMapIntensity: newMaterial.envMapIntensity,
+        emissive: newMaterial.emissive.clone(),
+        emissiveIntensity: newMaterial.emissiveIntensity,
+      };
 
       if (Array.isArray(mesh.material)) {
         mesh.material[index] = newMaterial;
@@ -977,15 +1005,86 @@ window.ShoelaceApp = {
     });
   },
 
-  setMeshColor(mesh, color) {
-    if (!mesh?.material || !color) return;
+  prepareShoelaceSwatchMaterial(mesh) {
+    if (!mesh?.material) return;
 
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
 
     materials.forEach((material) => {
       if (!material?.color) return;
 
-      material.color.set(color);
+      if (!material.map || material.userData.shoelaceSwatchMaterialPrepared) {
+        material.needsUpdate = true;
+        return;
+      }
+
+      material.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "diffuseColor *= sampledDiffuseColor;",
+          [
+            "float shoelaceMapLuma = dot(sampledDiffuseColor.rgb, vec3(0.299, 0.587, 0.114));",
+            "diffuseColor.rgb *= shoelaceMapLuma;",
+            "diffuseColor.a *= sampledDiffuseColor.a;",
+          ].join("\n"),
+        );
+      };
+
+      material.customProgramCacheKey = () => "shoelace-grayscale-map";
+      material.userData.shoelaceSwatchMaterialPrepared = true;
+      material.needsUpdate = true;
+    });
+  },
+
+  setMeshColor(mesh, color) {
+    if (!mesh?.material || !color) return;
+
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const colorValue = new THREE.Color(color);
+    const luminance =
+      colorValue.r * 0.2126 + colorValue.g * 0.7152 + colorValue.b * 0.0722;
+    const isVeryDark = luminance < 0.04;
+    const isVeryLight = luminance > 0.88;
+
+    materials.forEach((material) => {
+      if (!material?.color) return;
+
+      if (mesh.userData.shoePreviewAgletColorMesh) {
+        material.map = null;
+        material.normalMap = null;
+        material.aoMap = null;
+        material.metalnessMap = null;
+        material.roughnessMap = null;
+        material.alphaMap = null;
+      }
+
+      material.color.copy(
+        isVeryLight
+          ? colorValue.clone().lerp(new THREE.Color(0xb8b8b8), 0.55)
+          : colorValue,
+      );
+
+      if (isVeryDark || isVeryLight) {
+        material.metalness = 0.12;
+        material.roughness = isVeryLight ? 0.54 : 0.68;
+        material.envMapIntensity = isVeryLight ? 0.9 : 0.65;
+
+        if (material.emissive) {
+          material.emissive.set(0x000000);
+          material.emissiveIntensity = 0;
+        }
+      } else if (material.userData.agletMaterialDefaults) {
+        const defaults = material.userData.agletMaterialDefaults;
+
+        material.metalness = defaults.metalness;
+        material.roughness = defaults.roughness;
+        material.envMapIntensity = defaults.envMapIntensity;
+
+        if (material.emissive) {
+          material.emissive.copy(defaults.emissive);
+          material.emissiveIntensity = defaults.emissiveIntensity;
+        }
+      }
+
       material.needsUpdate = true;
     });
   },
@@ -999,21 +1098,186 @@ window.ShoelaceApp = {
       mesh.visible =
         nextStyle !== "none" && mesh.userData.agletStyle === nextStyle;
     });
+
+    this.syncAgletColors();
   },
 
   applyAgletColor(color, colorName = "") {
+    if (color) {
+      this.activeAgletColor = color;
+      this.activeAgletColorName = colorName || color;
+    }
+
+    this.syncAgletColors();
+  },
+
+  applyAgletColorToStyle(style, color) {
     if (!color) return;
 
-    this.activeAgletColor = color;
-    this.activeAgletColorName = colorName || color;
-
     this.agletMeshes.forEach((mesh) => {
+      const meshStyle = mesh.userData.agletStyle || this.getAgletStyleFromNode(mesh);
+
+      if (meshStyle !== style) return;
+
+      this.setMeshColor(mesh, color);
+    });
+  },
+
+  isAgletLikeMesh(mesh) {
+    if (!mesh?.isMesh) return false;
+
+    const normalizedName = this.normalizeAgletName(mesh.name);
+    const materialNames = (Array.isArray(mesh.material)
+      ? mesh.material
+      : [mesh.material]
+    )
+      .map((material) => this.normalizeAgletName(material?.name))
+      .join(" ");
+
+    if (mesh.userData.agletStyle || this.getAgletStyleFromNode(mesh)) {
+      return true;
+    }
+
+    if (/aglet_[1-4]/.test(normalizedName)) {
+      return true;
+    }
+
+    if (this.getAgletPlacementKey(mesh)) {
+      return /aglet|cylinder|sphere|tip|cap/.test(
+        `${normalizedName} ${materialNames}`,
+      );
+    }
+
+    return false;
+  },
+
+  isEditableShoelaceColorMesh(mesh) {
+    if (!mesh?.isMesh) return false;
+
+    const placementKey = this.getShoelacePlacementKey(mesh.name);
+
+    if (
+      placementKey !== "shoelace_1" &&
+      placementKey !== "shoelace_2" &&
+      placementKey !== "shoelace_3" &&
+      placementKey !== "shoelace_4"
+    ) {
+      return false;
+    }
+
+    return !this.isAgletLikeMesh(mesh);
+  },
+
+  getEditableShoelaceColorMeshes() {
+    const meshes = new Set();
+
+    if (this.model) {
+      this.model.traverse((child) => {
+        if (this.isEditableShoelaceColorMesh(child)) {
+          meshes.add(child);
+        }
+      });
+    }
+
+    this.shoelaces.forEach((mesh) => {
+      if (this.isEditableShoelaceColorMesh(mesh)) {
+        meshes.add(mesh);
+      }
+    });
+
+    return Array.from(meshes);
+  },
+
+  isShoePreviewAgletLikeMesh(mesh) {
+    if (!mesh?.isMesh) return false;
+
+    const rawName = this.normalizeAgletName(mesh.name);
+    const materialNames = (Array.isArray(mesh.material)
+      ? mesh.material
+      : [mesh.material]
+    )
+      .map((material) => this.normalizeAgletName(material?.name))
+      .join(" ");
+
+    if (mesh.userData.shoePreviewAgletColorMesh) {
+      return true;
+    }
+
+    if (/aglet|tip|cap/.test(`${rawName} ${materialNames}`)) {
+      mesh.userData.shoePreviewAgletColorMesh = true;
+      return true;
+    }
+
+    return false;
+  },
+
+  getAllAgletColorMeshes() {
+    const meshes = new Set(this.agletMeshes);
+
+    if (this.model) {
+      this.model.traverse((child) => {
+        if (this.isAgletLikeMesh(child)) {
+          meshes.add(child);
+        }
+      });
+    }
+
+    if (this.shoe) {
+      this.shoe.traverse((child) => {
+        if (this.isShoePreviewAgletLikeMesh(child)) {
+          meshes.add(child);
+        }
+      });
+    }
+
+    return Array.from(meshes);
+  },
+
+  getAgletColorForMesh(mesh) {
+    const meshStyle =
+      mesh?.userData?.agletStyle || this.getAgletStyleFromNode(mesh);
+
+    if (meshStyle === "default") {
+      return this.activeModelColorHex;
+    }
+
+    if (!meshStyle && this.activeAgletStyle === "default") {
+      return this.activeModelColorHex;
+    }
+
+    return this.activeAgletColor || null;
+  },
+
+  syncAgletColors() {
+    this.getAllAgletColorMeshes().forEach((mesh) => {
+      if (mesh.userData.keepOriginalAgletMaterial) return;
+
+      const color = this.getAgletColorForMesh(mesh);
+
+      if (!color) return;
+
       this.setMeshColor(mesh, color);
     });
   },
 
   getAgletStyleLabel() {
     return this.agletStyleLabels[this.activeAgletStyle] || "Default Aglet";
+  },
+
+  getMainColorSummary() {
+    return this.activeColor || "N/a";
+  },
+
+  getAgletStyleSummary() {
+    if (this.activeAgletStyle === "none" || this.activeAgletStyle === "default") {
+      return "N/a";
+    }
+
+    return this.getAgletStyleLabel();
+  },
+
+  getAgletColorSummary() {
+    return this.activeAgletColor ? this.activeAgletColorName || this.activeAgletColor : "N/a";
   },
 
   setupIconsFromButtons() {
@@ -1028,6 +1292,7 @@ window.ShoelaceApp = {
 
       this.iconRegistry[name] = {
         name,
+        displayName: name,
         marker,
         svg,
         scale: Number(btn.dataset.scale || 0.006),
@@ -1045,11 +1310,18 @@ window.ShoelaceApp = {
   async preloadIcons() {
     for (const icon of Object.values(this.iconRegistry)) {
       try {
-        this.iconTemplates[icon.name] = await this.createSVGMesh(icon.svg);
+        this.iconTemplates[icon.name] = await this.createIconTemplate(icon);
       } catch (error) {
-        console.error("Failed to preload icon:", icon.name, error);
       }
     }
+  },
+
+  createIconTemplate(icon) {
+    if (icon.rawSvg) {
+      return this.createSVGMeshFromText(icon.rawSvg);
+    }
+
+    return this.createSVGMesh(icon.svg);
   },
 
   async createIconMesh(name) {
@@ -1058,86 +1330,390 @@ window.ShoelaceApp = {
     if (!icon) return null;
 
     if (!this.iconTemplates[name]) {
-      this.iconTemplates[name] = await this.createSVGMesh(icon.svg);
+      this.iconTemplates[name] = await this.createIconTemplate(icon);
     }
 
     return this.iconTemplates[name].clone(true);
   },
 
+  buildSVGMesh(data) {
+    const rawGroup = new THREE.Group();
+
+    data.paths.forEach((path) => {
+      let shapes = window.SVGLoaderCreateShapes(path);
+
+      if (!shapes.length && path.subPaths?.length) {
+        shapes = path.subPaths
+          .filter((subPath) => subPath?.getPoints?.().length > 2)
+          .map((subPath) => {
+            const shape = new THREE.Shape(subPath.getPoints());
+            shape.autoClose = true;
+
+            return shape;
+          });
+      }
+
+      if (
+        !shapes.length &&
+        path.userData?.style?.stroke !== "none" &&
+        window.SVGLoader.pointsToStroke
+      ) {
+        shapes = path.subPaths
+          ?.map((subPath) => {
+            return window.SVGLoader.pointsToStroke(
+              subPath.getPoints(),
+              path.userData.style,
+            );
+          })
+          .filter(Boolean) || [];
+      }
+
+      shapes.forEach((shape) => {
+        const geometry = new THREE.ExtrudeGeometry(shape, {
+          depth: 1,
+          bevelEnabled: false,
+        });
+
+        const material = new THREE.MeshBasicMaterial({
+          color: this.textColor || 0x111111,
+          toneMapped: false,
+        });
+
+        material.userData.usesExactSwatchColor = true;
+
+        const mesh = new THREE.Mesh(geometry, material);
+        rawGroup.add(mesh);
+      });
+    });
+
+    const box = new THREE.Box3().setFromObject(rawGroup);
+    const center = new THREE.Vector3();
+    const size = new THREE.Vector3();
+
+    box.getCenter(center);
+    box.getSize(size);
+
+    const maxSize = Math.max(size.x, size.y);
+    const SVG_BASE_SIZE = 40;
+    const SVG_DEPTH = 2.5;
+
+    if (maxSize > 0) {
+      const iconScale = SVG_BASE_SIZE / maxSize;
+      rawGroup.scale.set(iconScale, iconScale, SVG_DEPTH);
+    }
+
+    const scaledBox = new THREE.Box3().setFromObject(rawGroup);
+    const scaledCenter = new THREE.Vector3();
+    scaledBox.getCenter(scaledCenter);
+
+    rawGroup.position.x -= scaledCenter.x;
+    rawGroup.position.y -= scaledCenter.y;
+    rawGroup.position.z -= scaledCenter.z;
+
+    const finalGroup = new THREE.Group();
+    finalGroup.add(rawGroup);
+
+    return finalGroup;
+  },
+
+  createSVGMeshFromText(svgText) {
+    return new Promise((resolve, reject) => {
+      try {
+        const loader = new window.SVGLoader();
+        const data = loader.parse(svgText);
+        resolve(this.buildSVGMesh(data));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  },
+
   createSVGMesh(url) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const loader = new window.SVGLoader();
 
       loader.load(url, (data) => {
-        const rawGroup = new THREE.Group();
-        let shapeCount = 0;
+        resolve(this.buildSVGMesh(data));
+      }, undefined, reject);
+    });
+  },
 
-        data.paths.forEach((path) => {
-          let shapes = window.SVGLoaderCreateShapes(path);
+  sanitizeCustomSVG(svgText) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, "image/svg+xml");
+    const parseError = doc.querySelector("parsererror");
+    const svg = doc.documentElement;
 
-          if (!shapes.length && path.subPaths?.length) {
-            shapes = path.subPaths
-              .filter((subPath) => subPath?.getPoints?.().length > 2)
-              .map((subPath) => {
-                const shape = new THREE.Shape(subPath.getPoints());
-                shape.autoClose = true;
+    if (parseError || !svg || svg.nodeName.toLowerCase() !== "svg") {
+      return "";
+    }
 
-                return shape;
-              });
-          }
+    doc
+      .querySelectorAll("script, foreignObject, iframe, object, embed")
+      .forEach((node) => node.remove());
 
-          shapes.forEach((shape) => {
-            shapeCount += 1;
-            const geometry = new THREE.ExtrudeGeometry(shape, {
-              depth: 1,
-              bevelEnabled: false,
-            });
+    doc.querySelectorAll("*").forEach((node) => {
+      [...node.attributes].forEach((attr) => {
+        const name = attr.name.toLowerCase();
+        const value = String(attr.value || "").trim().toLowerCase();
 
-            const material = new THREE.MeshStandardMaterial({
-              color: this.textColor || 0x111111,
-              roughness: 0.5,
-              metalness: 0.1,
-            });
-
-            const mesh = new THREE.Mesh(geometry, material);
-            rawGroup.add(mesh);
-          });
-        });
-
-        if (!shapeCount) {
-          console.warn("SVG icon did not produce extrudable shapes:", url);
+        if (name.startsWith("on") || value.startsWith("javascript:")) {
+          node.removeAttribute(attr.name);
         }
-
-        const box = new THREE.Box3().setFromObject(rawGroup);
-        const center = new THREE.Vector3();
-        const size = new THREE.Vector3();
-
-        box.getCenter(center);
-        box.getSize(size);
-
-        const maxSize = Math.max(size.x, size.y);
-        const SVG_BASE_SIZE = 40;
-        const SVG_DEPTH = 2.5;
-
-        if (maxSize > 0) {
-          const iconScale = SVG_BASE_SIZE / maxSize;
-          rawGroup.scale.set(iconScale, iconScale, SVG_DEPTH);
-        }
-
-        // IMPORTANT: center AFTER scaling
-        const scaledBox = new THREE.Box3().setFromObject(rawGroup);
-        const scaledCenter = new THREE.Vector3();
-        scaledBox.getCenter(scaledCenter);
-
-        rawGroup.position.x -= scaledCenter.x;
-        rawGroup.position.y -= scaledCenter.y;
-        rawGroup.position.z -= scaledCenter.z;
-
-        const finalGroup = new THREE.Group();
-        finalGroup.add(rawGroup);
-
-        resolve(finalGroup);
       });
+    });
+
+    return new XMLSerializer().serializeToString(svg);
+  },
+
+  setCustomEmojiFeedback(message, isError = false) {
+    const feedback = document.getElementById("customEmojiFeedback");
+
+    if (!feedback) return;
+
+    feedback.textContent = message || "";
+    feedback.classList.toggle("is-error", Boolean(isError));
+  },
+
+  clearCustomEmojiFeedback() {
+    this.setCustomEmojiFeedback("");
+  },
+
+  insertIconIntoActiveInput(iconName) {
+    const icon = this.iconRegistry[iconName];
+
+    if (!icon) return;
+
+    const textInput = document.getElementById("shoelace-text");
+    const backTextInput = document.getElementById("shoelace-text-back");
+    const side = this.activeTextSide === "back" ? "back" : "front";
+    const activeInput = side === "back" ? backTextInput : textInput;
+
+    if (!activeInput) return;
+
+    const newValue = activeInput.value + icon.marker;
+
+    if (!ShoelaceText.isTextWithinMaxWidth(this, newValue)) {
+      this.setCustomEmojiFeedback("That design is at the max width.", true);
+      return;
+    }
+
+    activeInput.value = newValue;
+    this.clearCustomEmojiFeedback();
+    ShoelaceText.updateShoelaceText(this, newValue, side);
+  },
+
+  async registerCustomEmojiFile(file) {
+    if (!file) return;
+
+    const isSvg =
+      file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
+
+    if (!isSvg) {
+      this.setCustomEmojiFeedback("Please use an SVG file.", true);
+      return;
+    }
+
+    let name = "";
+
+    try {
+      const rawSvg = await file.text();
+      const safeSvg = this.sanitizeCustomSVG(rawSvg);
+
+      if (!safeSvg) {
+        this.setCustomEmojiFeedback("That SVG could not be read.", true);
+        return;
+      }
+
+      this.customEmojiCounter += 1;
+
+      name = `ICON_${this.customEmojiCounter}`;
+      const marker = name;
+      const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(safeSvg)}`;
+
+      this.iconRegistry[name] = {
+        name,
+        displayName: name,
+        marker,
+        svg: svgDataUrl,
+        rawSvg: safeSvg,
+        cloudinaryUrl: "",
+        cloudinaryPublicId: "",
+        scale: 0.006,
+        width: 0.3,
+        x: 0,
+        y: 0.1,
+        z: 0,
+        rotationX: 0,
+        rotationY: 0,
+        rotationZ: Math.PI,
+      };
+
+      this.iconTemplates[name] = await this.createIconTemplate(
+        this.iconRegistry[name],
+      );
+
+      this.addCustomEmojiButton(this.iconRegistry[name]);
+      this.setCustomEmojiFeedback("Custom SVG added. Select it to place it on the lace.");
+    } catch (error) {
+      if (name) {
+        delete this.iconRegistry[name];
+        delete this.iconTemplates[name];
+        delete this.customEmojiUploads[name];
+
+        if (name === `ICON_${this.customEmojiCounter}`) {
+          this.customEmojiCounter = Math.max(0, this.customEmojiCounter - 1);
+        }
+      }
+
+      this.setCustomEmojiFeedback("That SVG could not be added.", true);
+    }
+  },
+
+  async uploadCustomEmoji(svgBlob, iconName, configId = "") {
+    const uploadUrl =
+      window.SHOELACE_CONFIG?.uploadEmojiUrl ||
+      window.SHOELACE_CONFIG?.uploadPdfUrl ||
+      "/apps/shoelaces-upload-pdf";
+    const formData = new FormData();
+
+    formData.append("uploadType", "emoji");
+    formData.append("iconName", iconName);
+    formData.append("configId", configId || "pending");
+    formData.append("emoji", svgBlob, `${iconName}.svg`);
+
+    const response = await fetch(uploadUrl, {
+      method: "POST",
+      body: formData,
+    });
+
+    const responseText = await response.text();
+    let result = null;
+
+    try {
+      result = responseText ? JSON.parse(responseText) : null;
+    } catch (error) {
+    }
+
+    if (!response.ok || !result?.ok) {
+      const errorMessage =
+        result?.error ||
+        responseText ||
+        `Custom emoji upload failed with status ${response.status}.`;
+
+      throw new Error(errorMessage);
+    }
+
+    return result.upload;
+  },
+
+  getUsedCustomEmojiIcons() {
+    const text = `${this.frontTextValue || ""}${this.backTextValue || ""}`;
+
+    return Object.values(this.iconRegistry || {}).filter((icon) => {
+      return icon.rawSvg && icon.marker && text.includes(icon.marker);
+    });
+  },
+
+  async uploadUsedCustomEmojis(configId) {
+    const icons = this.getUsedCustomEmojiIcons();
+
+    for (const icon of icons) {
+      if (icon.cloudinaryUrl) continue;
+
+      const svgBlob = new Blob([icon.rawSvg], { type: "image/svg+xml" });
+      const upload = await this.uploadCustomEmoji(svgBlob, icon.name, configId);
+
+      icon.cloudinaryUrl = upload.secureUrl;
+      icon.cloudinaryPublicId = upload.publicId;
+      this.customEmojiUploads[icon.name] = upload.secureUrl;
+    }
+
+    return icons;
+  },
+
+  getCustomEmojiUploadEntries() {
+    const usedIcons = this.getUsedCustomEmojiIcons();
+
+    return usedIcons
+      .filter((icon) => icon.cloudinaryUrl)
+      .map((icon) => [icon.displayName || icon.name, icon.cloudinaryUrl]);
+  },
+
+  getCustomEmojiUploadSummary() {
+    const entries = this.getCustomEmojiUploadEntries();
+
+    if (!entries.length) return "N/a";
+
+    return entries.map(([name, url]) => `${name}: ${url}`).join(" | ");
+  },
+
+  addCustomEmojiButton(icon) {
+    const container = document.getElementById("shoelace-emoji");
+
+    if (!container || !icon) return;
+
+    const button = document.createElement("button");
+    const image = document.createElement("img");
+
+    button.type = "button";
+    button.className = "emoji-btn custom-emoji-btn";
+    button.dataset.icon = icon.name;
+    button.dataset.marker = icon.marker;
+    button.dataset.svg = icon.svg;
+    button.setAttribute("aria-label", "Custom SVG emoji");
+
+    image.src = icon.svg;
+    image.alt = "Custom SVG emoji";
+
+    button.appendChild(image);
+    button.addEventListener("click", () => {
+      this.insertIconIntoActiveInput(icon.name);
+    });
+
+    container.appendChild(button);
+  },
+
+  setupCustomEmojiUpload() {
+    const dropzone = document.getElementById("customEmojiDropzone");
+    const input = document.getElementById("customEmojiInput");
+
+    if (!dropzone || !input) return;
+
+    const handleFiles = (files) => {
+      const [file] = files || [];
+      this.registerCustomEmojiFile(file);
+    };
+
+    dropzone.addEventListener("click", () => input.click());
+    dropzone.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        input.click();
+      }
+    });
+
+    input.addEventListener("change", (event) => {
+      handleFiles(event.target.files);
+      input.value = "";
+    });
+
+    ["dragenter", "dragover"].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropzone.classList.add("dragover");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropzone.classList.remove("dragover");
+      });
+    });
+
+    dropzone.addEventListener("drop", (event) => {
+      handleFiles(event.dataTransfer?.files);
     });
   },
 
@@ -1261,7 +1837,6 @@ window.ShoelaceApp = {
       view === "back" ? this.pdfBackCamera : this.pdfFrontCamera;
 
     if (!pdfCamera) {
-      console.error("PDF camera not ready:", view);
       this.renderer.setPixelRatio(originalPixelRatio);
       this.renderer.setSize(originalSize.x, originalSize.y, false);
       return this.renderer.domElement.toDataURL("image/png");
@@ -1388,12 +1963,9 @@ window.ShoelaceApp = {
 
     const data = [
       ["Model", "Flat Shoelaces"],
-      ["Main Color", this.activeColor || "N/a"],
-      ["Aglet Style", this.getAgletStyleLabel()],
-      [
-        "Aglet Color",
-        this.activeAgletStyle === "none" ? "N/a" : this.activeAgletColorName,
-      ],
+      ["Main Color", this.getMainColorSummary()],
+      ["Aglet Style", this.getAgletStyleSummary()],
+      ["Aglet Color", this.getAgletColorSummary()],
 
       ["Front Text", this.frontTextValue || "N/a"],
       ["Front Text Color", this.getTextColorSummary("front")],
@@ -1402,6 +1974,7 @@ window.ShoelaceApp = {
       ["Back Text", this.backTextValue || "N/a"],
       ["Back Text Color", this.getTextColorSummary("back")],
       ["Back Emoji Color", this.getEmojiColorSummary("back")],
+      ["Custom Emoji Files", this.getCustomEmojiUploadSummary()],
     ];
 
     data.forEach(([label, value]) => {
@@ -1412,7 +1985,7 @@ window.ShoelaceApp = {
         font: bold,
       });
 
-      page.drawText(this.pdfSafeText(value), {
+      page.drawText(this.pdfSafeText(value, label !== "Custom Emoji Files"), {
         x: valueX,
         y,
         size: 11,
@@ -1465,20 +2038,33 @@ window.ShoelaceApp = {
     return pdfBytes;
   },
 
-  pdfSafeText(value) {
+  pdfSafeText(value, formatIcons = true) {
+    if (!value) return "N/a";
+
+    const text = formatIcons ? this.formatEmojiMarkers(value) : String(value);
+
+    return text.replace(/[^\x20-\x7E]/g, "");
+  },
+
+  formatEmojiMarkers(value) {
     if (!value) return "N/a";
 
     let text = String(value);
 
     if (this.iconRegistry) {
-      Object.values(this.iconRegistry).forEach((icon) => {
-        if (icon.marker && icon.name) {
-          text = text.replaceAll(icon.marker, icon.name);
-        }
-      });
+      Object.values(this.iconRegistry)
+        .sort((a, b) => String(b.marker).length - String(a.marker).length)
+        .forEach((icon) => {
+          if (icon.marker && icon.name) {
+            text = text.replaceAll(
+              icon.marker,
+              `*${icon.displayName || icon.name}*`,
+            );
+          }
+        });
     }
 
-    return text.replace(/[^\x20-\x7E]/g, "");
+    return text;
   },
 
   capitalizeFirst(str) {
@@ -1507,11 +2093,13 @@ window.ShoelaceApp = {
   sideHasTypedText(side) {
     let value = this.getSideTextValue(side);
 
-    Object.values(this.iconRegistry || {}).forEach((icon) => {
-      if (icon.marker) {
-        value = value.replaceAll(icon.marker, "");
-      }
-    });
+    Object.values(this.iconRegistry || {})
+      .sort((a, b) => String(b.marker).length - String(a.marker).length)
+      .forEach((icon) => {
+        if (icon.marker) {
+          value = value.replaceAll(icon.marker, "");
+        }
+      });
 
     return value.trim().length > 0;
   },
@@ -1567,7 +2155,6 @@ window.ShoelaceApp = {
     try {
       result = responseText ? JSON.parse(responseText) : null;
     } catch (error) {
-      console.error("PDF upload returned a non-JSON response:", responseText);
     }
 
     if (!response.ok || !result?.ok) {
@@ -1616,11 +2203,13 @@ window.ShoelaceApp = {
     if (!this.isBackView) {
       this.activeTextSide = "front";
       this.updateTextInputAvailability();
+      this.updateDirectionalTooltip();
       return;
     }
 
     this.isBackView = false;
     this.activeTextSide = "front";
+    this.updateDirectionalTooltip();
 
     this.unlockCameraDragLimits();
 
@@ -1638,11 +2227,13 @@ window.ShoelaceApp = {
     if (this.isBackView) {
       this.activeTextSide = "back";
       this.updateTextInputAvailability();
+      this.updateDirectionalTooltip();
       return;
     }
 
     this.isBackView = true;
     this.activeTextSide = "back";
+    this.updateDirectionalTooltip();
 
     this.unlockCameraDragLimits();
 
@@ -1675,12 +2266,22 @@ window.ShoelaceApp = {
       backInput.classList.remove("active-input");
     }
 
+    this.clearCustomEmojiFeedback();
+
     if (sideIndicator) {
       sideIndicator.textContent = this.isBackView
         ? "Editing Back Side"
         : "Editing Front Side";
       sideIndicator.dataset.side = this.isBackView ? "back" : "front";
     }
+  },
+
+  updateDirectionalTooltip() {
+    if (!this.directionalTooltip) return;
+
+    this.directionalTooltip.textContent = this.isBackView
+      ? "View Front"
+      : "View Back";
   },
 
   getCartProperties(configId) {
@@ -1691,7 +2292,6 @@ window.ShoelaceApp = {
     const addToCartButton = document.getElementById("addToCart");
 
     if (!addToCartButton) {
-      console.error("Add to Cart button not found.");
       return;
     }
 
@@ -1713,18 +2313,33 @@ window.ShoelaceApp = {
       addToCartButton.disabled = true;
       addToCartButton.textContent = "Processing...";
 
-      window.showCartStatus("Step 1/2", "Uploading shoelace PDF...", false);
+      const usedCustomEmojiIcons = this.getUsedCustomEmojiIcons();
+
+      if (usedCustomEmojiIcons.length) {
+        window.showCartStatus(
+          "Step 1/3",
+          "Uploading custom emoji files...",
+          false,
+        );
+
+        await this.uploadUsedCustomEmojis(configId);
+      }
+
+      window.showCartStatus(
+        usedCustomEmojiIcons.length ? "Step 2/3" : "Step 1/2",
+        "Uploading shoelace PDF...",
+        false,
+      );
 
       const pdfBytes = await this.generatePDF();
       const upload = await this.uploadPDF(pdfBytes, configId);
       const cartProperties = {
         ...this.getCartProperties(configId),
         _pdfUrl: upload.secureUrl,
-        "Design PDF": upload.secureUrl,
       };
 
       window.showCartStatus(
-        "Step 2/2",
+        usedCustomEmojiIcons.length ? "Step 3/3" : "Step 2/2",
         "Adding shoelace configuration to cart...",
         false,
       );
@@ -1754,11 +2369,7 @@ window.ShoelaceApp = {
         true,
       );
 
-      console.log("Shoelace config ID:", configId);
-      console.log("Added to cart:", result);
     } catch (error) {
-      console.error("Add to cart error:", error);
-
       window.showCartStatus(
         "Error",
         error.message || "Something went wrong.",
@@ -1774,16 +2385,15 @@ window.ShoelaceApp = {
     return {
       ...(configId
         ? {
-            _configID: configId,
-            "Design ID": configId,
-          }
+          _configID: configId,
+          "Design ID": configId,
+        }
         : {}),
 
       Model: "Flat Shoelaces",
-      "Main Color": this.activeColor || "N/a",
-      "Aglet Style": this.getAgletStyleLabel(),
-      "Aglet Color":
-        this.activeAgletStyle === "none" ? "N/a" : this.activeAgletColorName,
+      "Main Color": this.getMainColorSummary(),
+      "Aglet Style": this.getAgletStyleSummary(),
+      "Aglet Color": this.getAgletColorSummary(),
 
       "Front Text": this.frontTextValue || "N/a",
       "Front Text Color": this.getTextColorSummary("front"),
@@ -1792,6 +2402,9 @@ window.ShoelaceApp = {
       "Back Text": this.backTextValue || "N/a",
       "Back Text Color": this.getTextColorSummary("back"),
       "Back Emoji Color": this.getEmojiColorSummary("back"),
+      // _customEmojiUrls: JSON.stringify(
+      //   Object.fromEntries(this.getCustomEmojiUploadEntries()),
+      // ),
     };
   },
 
@@ -1800,7 +2413,6 @@ window.ShoelaceApp = {
     const table = document.getElementById("summaryTable");
 
     if (!modal || !table) {
-      console.error("Summary modal or summary table not found.");
       return;
     }
 
@@ -1808,10 +2420,14 @@ window.ShoelaceApp = {
 
     table.innerHTML = Object.entries(properties)
       .map(([label, value]) => {
+        const displayValue =
+          label === "Custom Emoji Files"
+            ? value
+            : this.formatEmojiMarkers(value);
         return `
         <div class="summary-row">
           <span class="summary-label">${this.escapeHTML(label)}</span>
-          <span class="summary-value">${this.escapeHTML(value)}</span>
+          <span class="summary-value">${this.escapeHTML(displayValue)}</span>
         </div>
       `;
       })
@@ -1839,6 +2455,9 @@ window.ShoelaceApp = {
 
   setupUI() {
     const directionalButton = document.querySelector(".directional-button");
+    const directionalTooltip = document.querySelector(
+      ".directional-button .directional-tooltip",
+    );
     const textInput = document.getElementById("shoelace-text");
     const backTextInput = document.getElementById("shoelace-text-back");
     const emojiButtons = document.querySelectorAll(".emoji-btn");
@@ -1864,6 +2483,8 @@ window.ShoelaceApp = {
     const agletMeshSliders = document.querySelectorAll(
       "[data-aglet-mesh-slider]",
     );
+
+    this.setupCustomEmojiUpload();
     const duplicateShoelaceTextSliders = document.querySelectorAll(
       "[data-duplicate-shoelace-text-slider]",
     );
@@ -2012,11 +2633,13 @@ window.ShoelaceApp = {
     if (textInput) {
       textInput.addEventListener("focus", () => {
         this.activeTextSide = "front";
+        this.clearCustomEmojiFeedback();
         this.goToFrontView();
       });
 
       textInput.addEventListener("input", (event) => {
         this.activeTextSide = "front";
+        this.clearCustomEmojiFeedback();
         event.target.value = ShoelaceText.clampTextToMaxWidth(
           this,
           event.target.value.toUpperCase(),
@@ -2028,11 +2651,13 @@ window.ShoelaceApp = {
     if (backTextInput) {
       backTextInput.addEventListener("focus", () => {
         this.activeTextSide = "back";
+        this.clearCustomEmojiFeedback();
         this.goToBackView();
       });
 
       backTextInput.addEventListener("input", (event) => {
         this.activeTextSide = "back";
+        this.clearCustomEmojiFeedback();
         event.target.value = ShoelaceText.clampTextToMaxWidth(
           this,
           event.target.value.toUpperCase(),
@@ -2090,6 +2715,11 @@ window.ShoelaceApp = {
       });
     }
 
+    if (directionalTooltip) {
+      this.directionalTooltip = directionalTooltip;
+      this.updateDirectionalTooltip();
+    }
+
     if (previewBtn) {
       previewBtn.addEventListener("click", () => {
         this.positionShoe();
@@ -2122,25 +2752,7 @@ window.ShoelaceApp = {
 
     emojiButtons.forEach((btn) => {
       btn.addEventListener("click", () => {
-        const iconName = btn.dataset.icon;
-        const icon = this.iconRegistry[iconName];
-
-        if (!icon) return;
-
-        const side = this.activeTextSide === "back" ? "back" : "front";
-        const activeInput = side === "back" ? backTextInput : textInput;
-
-        if (!activeInput) return;
-
-        const newValue = activeInput.value + icon.marker;
-
-        if (!ShoelaceText.isTextWithinMaxWidth(this, newValue)) {
-          return;
-        }
-
-        activeInput.value = newValue;
-
-        ShoelaceText.updateShoelaceText(this, newValue, side);
+        this.insertIconIntoActiveInput(btn.dataset.icon);
       });
     });
 
@@ -2190,8 +2802,6 @@ window.ShoelaceApp = {
     );
     this.model.updateMatrixWorld(true);
 
-    console.log("[Shoelace model transform]", this.shoelaceModelTransform);
-
     if (!refreshText || !window.ShoelaceText) return;
 
     ShoelaceText.updateShoelaceText(this, this.frontTextValue || "", "front");
@@ -2239,11 +2849,11 @@ window.ShoelaceApp = {
       );
       group.rotation.set(
         base.rotation.x +
-          THREE.MathUtils.degToRad(Number(transform.rotationX || 0)),
+        THREE.MathUtils.degToRad(Number(transform.rotationX || 0)),
         base.rotation.y +
-          THREE.MathUtils.degToRad(Number(transform.rotationY || 0)),
+        THREE.MathUtils.degToRad(Number(transform.rotationY || 0)),
         base.rotation.z +
-          THREE.MathUtils.degToRad(Number(transform.rotationZ || 0)),
+        THREE.MathUtils.degToRad(Number(transform.rotationZ || 0)),
       );
       group.updateMatrixWorld(true);
     });
@@ -2409,11 +3019,11 @@ window.ShoelaceApp = {
       );
       mesh.rotation.set(
         base.rotation.x +
-          THREE.MathUtils.degToRad(Number(transform.rotationX || 0)),
+        THREE.MathUtils.degToRad(Number(transform.rotationX || 0)),
         base.rotation.y +
-          THREE.MathUtils.degToRad(Number(transform.rotationY || 0)),
+        THREE.MathUtils.degToRad(Number(transform.rotationY || 0)),
         base.rotation.z +
-          THREE.MathUtils.degToRad(Number(transform.rotationZ || 0)),
+        THREE.MathUtils.degToRad(Number(transform.rotationZ || 0)),
       );
       mesh.updateMatrixWorld(true);
     });
@@ -2468,14 +3078,28 @@ window.ShoelaceApp = {
     this.model.updateMatrixWorld(true);
   },
 
-  clonePreviewShoelaceMaterial(material) {
+  clonePreviewShoelaceMaterial(material, forcePlainColor = false) {
     if (!material) return material;
 
     if (Array.isArray(material)) {
-      return material.map((item) => this.clonePreviewShoelaceMaterial(item));
+      return material.map((item) =>
+        this.clonePreviewShoelaceMaterial(item, forcePlainColor),
+      );
     }
 
-    return material.clone ? material.clone() : material;
+    const clone = material.clone ? material.clone() : material;
+
+    if (forcePlainColor && clone) {
+      clone.map = null;
+      clone.normalMap = null;
+      clone.aoMap = null;
+      clone.metalnessMap = null;
+      clone.roughnessMap = null;
+      clone.alphaMap = null;
+      clone.needsUpdate = true;
+    }
+
+    return clone;
   },
 
   cleanupPreviewDuplicateShoelaces() {
@@ -2537,26 +3161,34 @@ window.ShoelaceApp = {
       cloneGroup.traverse((child) => {
         if (!child.isMesh) return;
 
-        child.material = this.clonePreviewShoelaceMaterial(child.material);
         child.castShadow = true;
         child.receiveShadow = true;
 
         const rawName = String(child.name || "").toLowerCase();
 
         if (rawName.includes("shoelace")) {
+          child.material = this.clonePreviewShoelaceMaterial(child.material);
           child.name = `shoelace_${targetNumber}`;
           this.shoelaces.push(child);
           this.textTargetLaces.push(child);
           this.previewDuplicateShoelaces.push(child);
           this.previewDuplicateTextTargetLaces.push(child);
-        } else if (rawName.includes("aglet")) {
-          child.name = `Aglet_${targetNumber}`;
-        }
+        } else {
+          child.material = this.clonePreviewShoelaceMaterial(child.material);
 
-        if (child.userData.agletStyle) {
+          child.userData.keepOriginalAgletMaterial = true;
+
+          child.userData.agletStyle =
+            child.userData.agletStyle ||
+            this.getAgletStyleFromNode(child) ||
+            this.activeAgletStyle ||
+            "default";
+
           child.name = `${child.userData.agletStyle}_${targetNumber}`;
           child.userData.shoelacePlacementKey = targetName;
+
           this.storeAgletBaseTransform(child);
+
           this.agletMeshes.push(child);
           clonedAglets.push(child);
         }
@@ -2718,7 +3350,10 @@ window.ShoelaceApp = {
     if (!this.shoe) return;
 
     const wrapper = document.querySelector(".shoelaces-configurator-wrapper");
+    const iconContainer = document.querySelector(".icon-container");
+
     wrapper?.classList.add("preview-mode");
+    iconContainer?.classList.add("d-none");
     this.isShoePreviewActive = true;
     this.setPreviewLighting();
     this.showPreviewOptionsPanel();
@@ -2793,7 +3428,10 @@ window.ShoelaceApp = {
 
   backShoe() {
     const wrapper = document.querySelector(".shoelaces-configurator-wrapper");
+    const iconContainer = document.querySelector(".icon-container");
+
     wrapper?.classList.remove("preview-mode");
+    iconContainer?.classList.remove("d-none");
     this.isShoePreviewActive = false;
     this.isBackView = false;
     this.activeTextSide = "front";
@@ -2855,7 +3493,7 @@ window.ShoelaceApp = {
 
     const btn = document.querySelector(".icon-container");
     if (btn) {
-      btn.style.right = this.viewport_width + 20 + "px";
+      btn.style.right = isMobile ? "" : this.viewport_width + 20 + "px";
     }
   },
 
@@ -2881,7 +3519,6 @@ window.ShoelaceApp = {
 };
 
 const startApp = () => {
-  console.log("Starting ShoelaceApp");
   ShoelaceApp.init();
 };
 

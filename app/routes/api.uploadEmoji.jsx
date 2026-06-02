@@ -1,11 +1,10 @@
 import crypto from "node:crypto";
 import process from "node:process";
 import { authenticate } from "../shopify.server";
-import { uploadEmojiFromFormData } from "./api.uploadEmoji";
 
-const MAX_PDF_BYTES = 8 * 1024 * 1024;
+const MAX_SVG_BYTES = 512 * 1024;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX_REQUESTS = 12;
+const RATE_LIMIT_MAX_REQUESTS = 24;
 const uploadAttempts = new Map();
 
 function json(data, init = {}) {
@@ -55,31 +54,34 @@ function assertRateLimit(request, shop) {
   current.count += 1;
 }
 
-async function assertPdfFile(file) {
+async function assertSvgFile(file) {
   if (!(file instanceof File)) {
-    throw new Response("PDF file is required.", { status: 400 });
+    throw new Response("SVG file is required.", { status: 400 });
   }
 
   if (file.size <= 0) {
-    throw new Response("PDF file is empty.", { status: 400 });
+    throw new Response("SVG file is empty.", { status: 400 });
   }
 
-  if (file.size > MAX_PDF_BYTES) {
-    throw new Response("PDF file is too large.", { status: 413 });
+  if (file.size > MAX_SVG_BYTES) {
+    throw new Response("SVG file is too large.", { status: 413 });
   }
 
-  const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
-  const signature = String.fromCharCode(...header);
+  const text = await file.text();
 
-  if (signature !== "%PDF-") {
-    throw new Response("Only PDF uploads are allowed.", { status: 415 });
+  if (!/<svg[\s>]/i.test(text)) {
+    throw new Response("Only SVG uploads are allowed.", { status: 415 });
+  }
+
+  if (/<script[\s>]/i.test(text) || /<foreignObject[\s>]/i.test(text)) {
+    throw new Response("SVG contains unsupported markup.", { status: 415 });
   }
 }
 
 function safePublicId(value) {
   return String(value || "")
     .trim()
-    .replace(/\.pdf$/i, "")
+    .replace(/\.svg$/i, "")
     .replace(/[^a-zA-Z0-9_-]/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
@@ -96,25 +98,29 @@ function cloudinarySignature(params, apiSecret) {
   return crypto.createHash("sha1").update(`${payload}${apiSecret}`).digest("hex");
 }
 
-async function uploadToCloudinary({ file, configId, shop }) {
+async function uploadEmojiToCloudinary({ file, iconName, configId, shop }) {
   const cloudName = requiredEnv("CLOUDINARY_CLOUD_NAME");
   const apiKey = requiredEnv("CLOUDINARY_API_KEY");
   const apiSecret = requiredEnv("CLOUDINARY_API_SECRET");
-  const folder = process.env.CLOUDINARY_PDF_FOLDER || "shoelaces-configurations";
-  const publicId =
-    safePublicId(configId) || `shoelace-${Date.now()}-${crypto.randomUUID()}`;
+  const folder =
+    process.env.CLOUDINARY_EMOJI_FOLDER || "shoelaces-custom-emojis";
+  const safeIconName = safePublicId(iconName) || "custom-icon";
+  const safeConfigId = safePublicId(configId);
+  const publicId = safeConfigId
+    ? `${safeConfigId}-${safeIconName}`
+    : `${safeIconName}-${Date.now()}-${crypto.randomUUID()}`;
   const timestamp = Math.floor(Date.now() / 1000);
   const uploadParams = {
     folder,
     public_id: publicId,
     overwrite: "false",
-    tags: "shoelaces,pdf,cart-upload",
-    context: `shop=${shop}|config_id=${publicId}`,
+    tags: "shoelaces,custom-emoji,cart-upload",
+    context: `shop=${shop}|config_id=${safeConfigId || "pending"}|icon_name=${safeIconName}`,
     timestamp,
   };
 
   const uploadForm = new FormData();
-  uploadForm.append("file", file, `${publicId}.pdf`);
+  uploadForm.append("file", file, `${safeIconName}.svg`);
   Object.entries(uploadParams).forEach(([key, value]) => {
     uploadForm.append(key, String(value));
   });
@@ -144,7 +150,6 @@ async function uploadToCloudinary({ file, configId, shop }) {
     secureUrl: result.secure_url,
     bytes: result.bytes,
     format: result.format,
-    pages: result.pages,
     width: result.width,
     height: result.height,
   };
@@ -163,30 +168,9 @@ export const action = async ({ request }) => {
     }
 
     const formData = await request.formData();
-
-    if (formData.get("uploadType") === "emoji") {
-      const upload = await uploadEmojiFromFormData({
-        request,
-        formData,
-        shop: session.shop,
-      });
-
-      return json({
-        ok: true,
-        upload,
-      });
-    }
-
-    assertRateLimit(request, session.shop);
-
-    const file = formData.get("pdf");
-    const configId = formData.get("configId");
-
-    await assertPdfFile(file);
-
-    const upload = await uploadToCloudinary({
-      file,
-      configId,
+    const upload = await uploadEmojiFromFormData({
+      request,
+      formData,
       shop: session.shop,
     });
 
@@ -201,7 +185,7 @@ export const action = async ({ request }) => {
       return json(
         {
           ok: false,
-          error: message || "PDF upload failed.",
+          error: message || "Custom emoji upload failed.",
         },
         { status: error.status || 500 },
       );
@@ -210,9 +194,26 @@ export const action = async ({ request }) => {
     return json(
       {
         ok: false,
-        error: error.message || "PDF upload failed.",
+        error: error.message || "Custom emoji upload failed.",
       },
       { status: 500 },
     );
   }
 };
+
+export async function uploadEmojiFromFormData({ request, formData, shop }) {
+  assertRateLimit(request, shop);
+
+  const file = formData.get("emoji");
+  const iconName = formData.get("iconName");
+  const configId = formData.get("configId");
+
+  await assertSvgFile(file);
+
+  return uploadEmojiToCloudinary({
+    file,
+    iconName,
+    configId,
+    shop,
+  });
+}

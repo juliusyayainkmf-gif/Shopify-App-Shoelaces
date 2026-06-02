@@ -1,12 +1,9 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "c208b23548570b27ba03b3330b0aecc2"
+client_id = "1ee27998153cd8eed89406da111a18b8"
 application_url = "https://example.com"
 embedded = true
-name = "Shoelaces App"
-
-[webhooks]
-api_version = "2026-07"
+name = "Shoelaces"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
@@ -14,6 +11,9 @@ scopes = "read_products,read_publications,write_metaobject_definitions,write_met
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]
+
+[webhooks]
+api_version = "2026-07"
 
 [build]
 automatically_update_urls_on_dev = true

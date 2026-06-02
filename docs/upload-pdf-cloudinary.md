@@ -36,7 +36,11 @@ browser-visible code.
 
 ## Shopify App Proxy
 
-The app proxy is configured in `shopify.app.toml`:
+The app proxy must be configured in whichever Shopify app config is active for
+your dev/deploy target. This repo includes the block in each app config file
+(`shopify.app.toml`, `shopify.app.shoelaces.toml`, and
+`shopify.app.shoelaces-app.toml`) so switching configs does not remove the
+storefront upload endpoint:
 
 ```toml
 [app_proxy]
