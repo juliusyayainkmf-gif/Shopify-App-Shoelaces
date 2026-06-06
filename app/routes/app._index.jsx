@@ -15,6 +15,32 @@ const DEFAULT_SHOELACE_COLORS = [
 
 const SHOELACE_PRODUCT_TAG = "shoelaces-configurator-product";
 const SHOELACE_COLORS_METAOBJECT_TYPE = "shoelaces_colors";
+const SHOELACE_PRICING_VARIANTS = [
+  {
+    key: "base",
+    metafieldKey: "variant_id",
+    title: "Shoelaces Only",
+    price: "5.00",
+  },
+  {
+    key: "aglets",
+    metafieldKey: "aglets_variant_id",
+    title: "Shoelaces with Aglets",
+    price: "12.99",
+  },
+  {
+    key: "personalization",
+    metafieldKey: "personalization_variant_id",
+    title: "Shoelaces with Text",
+    price: "10.00",
+  },
+  {
+    key: "agletsPersonalization",
+    metafieldKey: "aglets_personalization_variant_id",
+    title: "Shoelaces with Aglets and Text",
+    price: "17.99",
+  },
+];
 
 const GET_SHOELACE_COLOR_ENTRIES = `#graphql
   query GetShoelaceColorEntries($type: String!) {
@@ -126,11 +152,16 @@ const FIND_SHOELACE_PRODUCT = `#graphql
         title
         handle
         status
-        variants(first: 1) {
+        variants(first: 20) {
           nodes {
             id
             legacyResourceId
+            title
             price
+            selectedOptions {
+              name
+              value
+            }
           }
         }
       }
@@ -146,11 +177,16 @@ const CREATE_SHOELACE_PRODUCT = `#graphql
         title
         handle
         status
-        variants(first: 1) {
+        variants(first: 20) {
           nodes {
             id
             legacyResourceId
+            title
             price
+            selectedOptions {
+              name
+              value
+            }
           }
         }
       }
@@ -168,7 +204,41 @@ const UPDATE_SHOELACE_VARIANT = `#graphql
       productVariants {
         id
         legacyResourceId
+        title
         price
+        selectedOptions {
+          name
+          value
+        }
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+const CREATE_SHOELACE_VARIANTS = `#graphql
+  mutation CreateShoelaceVariants(
+    $productId: ID!,
+    $variants: [ProductVariantsBulkInput!]!,
+    $strategy: ProductVariantsBulkCreateStrategy
+  ) {
+    productVariantsBulkCreate(
+      productId: $productId,
+      variants: $variants,
+      strategy: $strategy
+    ) {
+      productVariants {
+        id
+        legacyResourceId
+        title
+        price
+        selectedOptions {
+          name
+          value
+        }
       }
       userErrors {
         field
@@ -226,6 +296,147 @@ function adminProductUrl(shop, productGid) {
   }
 
   return `https://admin.shopify.com/store/${store}/products/${productId}`;
+}
+
+function variantOptionValue(variant) {
+  return variant?.selectedOptions?.[0]?.value || variant?.title || "";
+}
+
+function findVariantForPricing(variants, pricingVariant) {
+  const normalizedTitle = pricingVariant.title.toLowerCase();
+
+  return variants.find((variant) => {
+    return variantOptionValue(variant).toLowerCase() === normalizedTitle;
+  });
+}
+
+function findStandaloneVariant(variants) {
+  return variants.find((variant) => {
+    const optionValue = variantOptionValue(variant).toLowerCase();
+
+    return optionValue === "default title" || optionValue === "title";
+  });
+}
+
+function pricingVariantInput(pricingVariant) {
+  return {
+    price: pricingVariant.price,
+    optionValues: [
+      {
+        optionName: "Title",
+        name: pricingVariant.title,
+      },
+    ],
+  };
+}
+
+async function updateShoelacePricingVariants(admin, productId, variants) {
+  if (!variants.length) return [];
+
+  const response = await admin.graphql(UPDATE_SHOELACE_VARIANT, {
+    variables: {
+      productId,
+      variants,
+    },
+  });
+
+  const data = await response.json();
+  const errors = data.data.productVariantsBulkUpdate.userErrors || [];
+
+  if (errors.length) {
+    throw new Error(errors.map((error) => error.message).join(", "));
+  }
+
+  return data.data.productVariantsBulkUpdate.productVariants || [];
+}
+
+async function createShoelacePricingVariants(admin, productId, variants) {
+  if (!variants.length) return [];
+
+  const response = await admin.graphql(CREATE_SHOELACE_VARIANTS, {
+    variables: {
+      productId,
+      variants,
+      strategy: "PRESERVE_STANDALONE_VARIANT",
+    },
+  });
+
+  const data = await response.json();
+  const errors = data.data.productVariantsBulkCreate.userErrors || [];
+
+  if (errors.length) {
+    throw new Error(errors.map((error) => error.message).join(", "));
+  }
+
+  return data.data.productVariantsBulkCreate.productVariants || [];
+}
+
+async function ensureShoelacePricingVariants(admin, product) {
+  const variants = [...(product.variants?.nodes || [])];
+  const variantByKey = {};
+  const updates = [];
+  const creates = [];
+
+  SHOELACE_PRICING_VARIANTS.forEach((pricingVariant) => {
+    let variant = findVariantForPricing(variants, pricingVariant);
+
+    if (!variant && pricingVariant.key === "base") {
+      variant = findStandaloneVariant(variants);
+    }
+
+    if (variant) {
+      variantByKey[pricingVariant.key] = variant;
+      updates.push({
+        id: variant.id,
+        ...pricingVariantInput(pricingVariant),
+      });
+      return;
+    }
+
+    creates.push(pricingVariantInput(pricingVariant));
+  });
+
+  const updatedVariants = await updateShoelacePricingVariants(
+    admin,
+    product.id,
+    updates,
+  );
+
+  updatedVariants.forEach((variant) => {
+    const pricingVariant = SHOELACE_PRICING_VARIANTS.find((item) => {
+      return item.title === variantOptionValue(variant);
+    });
+
+    if (pricingVariant) {
+      variantByKey[pricingVariant.key] = variant;
+    }
+  });
+
+  const createdVariants = await createShoelacePricingVariants(
+    admin,
+    product.id,
+    creates,
+  );
+
+  createdVariants.forEach((variant) => {
+    const pricingVariant = SHOELACE_PRICING_VARIANTS.find((item) => {
+      return item.title === variantOptionValue(variant);
+    });
+
+    if (pricingVariant) {
+      variantByKey[pricingVariant.key] = variant;
+    }
+  });
+
+  const missingVariant = SHOELACE_PRICING_VARIANTS.find((pricingVariant) => {
+    return !variantByKey[pricingVariant.key];
+  });
+
+  if (missingVariant) {
+    throw new Error(`${missingVariant.title} variant could not be prepared.`);
+  }
+
+  return variantByKey;
 }
 
 async function ensureDefaultShoelaceColorEntries(admin) {
@@ -418,22 +629,29 @@ async function createShoelaceProduct(admin) {
   };
 }
 
-async function saveShoelaceVariantIdToShop(admin, variantId) {
+async function saveShoelaceVariantIdsToShop(admin, variantByKey) {
   const shopResponse = await admin.graphql(GET_SHOP_ID);
   const shopData = await shopResponse.json();
   const shopId = shopData.data.shop.id;
+  const metafields = SHOELACE_PRICING_VARIANTS.map((pricingVariant) => {
+    const variant = variantByKey[pricingVariant.key];
+
+    if (!variant?.legacyResourceId) {
+      throw new Error(`${pricingVariant.title} variant ID is missing.`);
+    }
+
+    return {
+      ownerId: shopId,
+      namespace: "shoelaces_configurator",
+      key: pricingVariant.metafieldKey,
+      type: "single_line_text_field",
+      value: String(variant.legacyResourceId),
+    };
+  });
 
   const response = await admin.graphql(SAVE_SHOELACE_SETTINGS, {
     variables: {
-      metafields: [
-        {
-          ownerId: shopId,
-          namespace: "shoelaces_configurator",
-          key: "variant_id",
-          type: "single_line_text_field",
-          value: String(variantId),
-        },
-      ],
+      metafields,
     },
   });
 
@@ -444,7 +662,7 @@ async function saveShoelaceVariantIdToShop(admin, variantId) {
     throw new Error(errors.map((error) => error.message).join(", "));
   }
 
-  return data.data.metafieldsSet.metafields[0];
+  return data.data.metafieldsSet.metafields;
 }
 
 async function publishProductToSalesChannels(admin, productId) {
@@ -495,9 +713,10 @@ export const loader = async ({ request }) => {
       created = true;
     }
 
-    const variant = product.variants.nodes[0];
+    const variantByKey = await ensureShoelacePricingVariants(admin, product);
+    const baseVariant = variantByKey.base;
 
-    await saveShoelaceVariantIdToShop(admin, variant.legacyResourceId);
+    await saveShoelaceVariantIdsToShop(admin, variantByKey);
 
     const publishedTo = await publishProductToSalesChannels(admin, product.id);
 
@@ -514,9 +733,19 @@ export const loader = async ({ request }) => {
       productTitle: product.title,
       productHandle: product.handle,
       productStatus: product.status,
-      variantGid: variant.id,
-      variantId: variant.legacyResourceId,
-      variantPrice: variant.price,
+      variantGid: baseVariant.id,
+      variantId: baseVariant.legacyResourceId,
+      variantPrice: baseVariant.price,
+      pricingVariants: SHOELACE_PRICING_VARIANTS.map((pricingVariant) => {
+        const variant = variantByKey[pricingVariant.key];
+
+        return {
+          key: pricingVariant.key,
+          title: pricingVariant.title,
+          price: variant.price,
+          variantId: variant.legacyResourceId,
+        };
+      }),
       adminProductUrl: adminProductUrl(session.shop, product.id),
       publishedTo,
       colorsDefinition,
@@ -555,10 +784,10 @@ export default function Index() {
         : "The automatic product check did not complete.",
     },
     {
-      title: "Variant",
+      title: "Variants",
       text: data.ok
-        ? `Variant ${data.variantId} is saved to the shop metafield.`
-        : "The variant ID could not be saved yet.",
+        ? `${data.pricingVariants.length} pricing variants are saved to shop metafields.`
+        : "The variant IDs could not be saved yet.",
     },
     {
       title: "Theme app block",
@@ -577,7 +806,7 @@ export default function Index() {
                 Manage the custom shoelace configurator from one dashboard.
               </h2>
               <p className={styles.lede}>
-                Track the generated product, saved variant ID, sales channel
+                Track the generated product, saved variant IDs, sales channel
                 publishing, and color metaobjects that power the storefront
                 configurator.
               </p>
@@ -610,7 +839,7 @@ export default function Index() {
               </h3>
               <p className={styles.statusText}>
                 {data.ok
-                  ? "The app can pass the saved variant ID to the theme extension."
+                  ? "The app can pass the saved pricing variant IDs to the theme extension."
                   : data.error}
               </p>
             </div>
@@ -625,14 +854,14 @@ export default function Index() {
                   <p className={styles.metricHint}>Tagged configurator product</p>
                 </div>
                 <div className={styles.metric}>
-                  <p className={styles.metricLabel}>Variant ID</p>
-                  <p className={styles.metricValue}>{data.variantId}</p>
-                  <p className={styles.metricHint}>Stored on the shop metafield</p>
+                  <p className={styles.metricLabel}>Pricing variants</p>
+                  <p className={styles.metricValue}>{data.pricingVariants.length}</p>
+                  <p className={styles.metricHint}>Stored on shop metafields</p>
                 </div>
                 <div className={styles.metric}>
                   <p className={styles.metricLabel}>Base price</p>
                   <p className={styles.metricValue}>${data.variantPrice}</p>
-                  <p className={styles.metricHint}>Default lace product variant</p>
+                  <p className={styles.metricHint}>Shoelaces only variant</p>
                 </div>
                 <div className={styles.metric}>
                   <p className={styles.metricLabel}>Colors</p>
@@ -667,6 +896,14 @@ export default function Index() {
                       <span className={styles.label}>Product ID</span>
                       <span className={styles.value}>{data.productNumericId}</span>
                     </div>
+                    {data.pricingVariants.map((variant) => (
+                      <div className={styles.row} key={variant.key}>
+                        <span className={styles.label}>{variant.title}</span>
+                        <span className={styles.value}>
+                          ${variant.price} / {variant.variantId}
+                        </span>
+                      </div>
+                    ))}
                     <div className={styles.row}>
                       <span className={styles.label}>Sales channels</span>
                       <ul className={styles.channels}>

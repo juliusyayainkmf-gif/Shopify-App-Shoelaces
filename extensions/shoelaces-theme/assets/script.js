@@ -7,6 +7,33 @@ const VARIANT_ID_WITH_CUSTOMIZATION =
     ? Number(window.SHOELACE_CONFIG.variantId)
     : null;
 
+function variantIdFromConfig(value) {
+  const variantId = Number(value);
+
+  return Number.isFinite(variantId) && variantId > 0 ? variantId : null;
+}
+
+const SHOELACE_VARIANT_IDS = {
+  base: variantIdFromConfig(VARIANT_ID_WITH_CUSTOMIZATION),
+  aglets: variantIdFromConfig(window.SHOELACE_CONFIG?.agletsVariantId),
+  personalization: variantIdFromConfig(
+    window.SHOELACE_CONFIG?.personalizationVariantId,
+  ),
+  agletsPersonalization: variantIdFromConfig(
+    window.SHOELACE_CONFIG?.agletsPersonalizationVariantId,
+  ),
+};
+
+const SHOELACE_PRICING = {
+  base: 500,
+  aglets: 799,
+  personalization: 500,
+};
+
+function formatMoney(cents) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 window.ShoelaceApp = {
   canvas: null,
   scene: null,
@@ -295,6 +322,7 @@ window.ShoelaceApp = {
     this.setupUI();
     this.disableImageDragging();
     this.updateTextInputAvailability();
+    this.updateEstimatedPrice();
     this.preloadIcons();
     this.animate();
   },
@@ -1501,6 +1529,7 @@ window.ShoelaceApp = {
     activeInput.value = newValue;
     this.clearCustomEmojiFeedback();
     ShoelaceText.updateShoelaceText(this, newValue, side);
+    this.updateEstimatedPrice();
   },
 
   async registerCustomEmojiFile(file) {
@@ -1669,6 +1698,7 @@ window.ShoelaceApp = {
     button.appendChild(image);
     button.addEventListener("click", () => {
       this.insertIconIntoActiveInput(icon.name);
+      this.updateEstimatedPrice();
     });
 
     container.appendChild(button);
@@ -2288,6 +2318,50 @@ window.ShoelaceApp = {
     return this.getSummaryProperties(configId);
   },
 
+  hasPaidAglets() {
+    return !["none", "default"].includes(this.activeAgletStyle);
+  },
+
+  hasPersonalization() {
+    return this.sideHasTypedText("front") || this.sideHasTypedText("back");
+  },
+
+  getSelectedPricing() {
+    const hasAglets = this.hasPaidAglets();
+    const hasPersonalization = this.hasPersonalization();
+    const totalCents =
+      SHOELACE_PRICING.base +
+      (hasAglets ? SHOELACE_PRICING.aglets : 0) +
+      (hasPersonalization ? SHOELACE_PRICING.personalization : 0);
+
+    let variantKey = "base";
+
+    if (hasAglets && hasPersonalization) {
+      variantKey = "agletsPersonalization";
+    } else if (hasAglets) {
+      variantKey = "aglets";
+    } else if (hasPersonalization) {
+      variantKey = "personalization";
+    }
+
+    return {
+      hasAglets,
+      hasPersonalization,
+      totalCents,
+      totalLabel: formatMoney(totalCents),
+      variantKey,
+      variantId: SHOELACE_VARIANT_IDS[variantKey],
+    };
+  },
+
+  updateEstimatedPrice() {
+    const priceTag = document.getElementById("price-tag");
+
+    if (!priceTag) return;
+
+    priceTag.textContent = this.getSelectedPricing().totalLabel;
+  },
+
   async addConfiguredProductToCart() {
     const addToCartButton = document.getElementById("addToCart");
 
@@ -2295,10 +2369,21 @@ window.ShoelaceApp = {
       return;
     }
 
-    if (!VARIANT_ID_WITH_CUSTOMIZATION) {
+    if (!SHOELACE_VARIANT_IDS.base) {
       window.showCartStatus(
         "Unable to add item",
         "Shoelace product variant ID is missing. Please open the app admin once to finish setup.",
+        true,
+      );
+      return;
+    }
+
+    const selectedPricing = this.getSelectedPricing();
+
+    if (!selectedPricing.variantId) {
+      window.showCartStatus(
+        "Unable to add item",
+        `The ${selectedPricing.totalLabel} pricing variant is not configured yet.`,
         true,
       );
       return;
@@ -2351,7 +2436,7 @@ window.ShoelaceApp = {
           Accept: "application/json",
         },
         body: JSON.stringify({
-          id: VARIANT_ID_WITH_CUSTOMIZATION,
+          id: selectedPricing.variantId,
           quantity: 1,
           properties: cartProperties,
         }),
@@ -2394,6 +2479,7 @@ window.ShoelaceApp = {
       "Main Color": this.getMainColorSummary(),
       "Aglet Style": this.getAgletStyleSummary(),
       "Aglet Color": this.getAgletColorSummary(),
+      "Aglets Add-on": this.hasPaidAglets() ? "+$7.99" : "N/a",
 
       "Front Text": this.frontTextValue || "N/a",
       "Front Text Color": this.getTextColorSummary("front"),
@@ -2402,6 +2488,8 @@ window.ShoelaceApp = {
       "Back Text": this.backTextValue || "N/a",
       "Back Text Color": this.getTextColorSummary("back"),
       "Back Emoji Color": this.getEmojiColorSummary("back"),
+      "Personalization Add-on": this.hasPersonalization() ? "+$5.00" : "N/a",
+      "Estimated Total": this.getSelectedPricing().totalLabel,
       // _customEmojiUrls: JSON.stringify(
       //   Object.fromEntries(this.getCustomEmojiUploadEntries()),
       // ),
@@ -2645,6 +2733,7 @@ window.ShoelaceApp = {
           event.target.value.toUpperCase(),
         );
         ShoelaceText.updateShoelaceText(this, event.target.value, "front");
+        this.updateEstimatedPrice();
       });
     }
 
@@ -2663,6 +2752,7 @@ window.ShoelaceApp = {
           event.target.value.toUpperCase(),
         );
         ShoelaceText.updateShoelaceText(this, event.target.value, "back");
+        this.updateEstimatedPrice();
       });
     }
 
@@ -2706,6 +2796,7 @@ window.ShoelaceApp = {
         button.classList.add("btn-dark", "btn-active", "active");
 
         this.applyAgletStyle(style);
+        this.updateEstimatedPrice();
       });
     });
 
@@ -2753,6 +2844,7 @@ window.ShoelaceApp = {
     emojiButtons.forEach((btn) => {
       btn.addEventListener("click", () => {
         this.insertIconIntoActiveInput(btn.dataset.icon);
+        this.updateEstimatedPrice();
       });
     });
 

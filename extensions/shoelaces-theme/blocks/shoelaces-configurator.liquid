@@ -1,4 +1,3 @@
-{{ 'bootstrap.min.css' | asset_url | stylesheet_tag }}
 {{ 'configurator_style.css' | asset_url | stylesheet_tag }}
 {{ 'configurator_mobile.css' | asset_url | stylesheet_tag }}
 
@@ -1208,6 +1207,9 @@
 <script>
   window.SHOELACE_CONFIG = {
     variantId: {{ shop.metafields.shoelaces_configurator.variant_id.value | json }},
+    agletsVariantId: {{ block.settings.aglets_variant_id | default: shop.metafields.shoelaces_configurator.aglets_variant_id.value | json }},
+    personalizationVariantId: {{ block.settings.personalization_variant_id | default: shop.metafields.shoelaces_configurator.personalization_variant_id.value | json }},
+    agletsPersonalizationVariantId: {{ block.settings.aglets_personalization_variant_id | default: shop.metafields.shoelaces_configurator.aglets_personalization_variant_id.value | json }},
     uploadPdfUrl: {{ '/apps/shoelaces-upload-pdf' | json }},
     uploadEmojiUrl: {{ '/apps/shoelaces-upload-pdf' | json }}
   };
@@ -1252,12 +1254,30 @@
       "type": "text",
       "id": "logo_text",
       "label": "Logo text",
-      "default": "Shoelaces"
+      "default": "Dubraes"
     },
     {
       "type": "image_picker",
       "id": "help_image",
       "label": "Help modal image"
+    },
+    {
+      "type": "text",
+      "id": "aglets_variant_id",
+      "label": "Aglets variant ID",
+      "info": "Variant priced at $12.99."
+    },
+    {
+      "type": "text",
+      "id": "personalization_variant_id",
+      "label": "Personalization variant ID",
+      "info": "Variant priced at $10.00."
+    },
+    {
+      "type": "text",
+      "id": "aglets_personalization_variant_id",
+      "label": "Aglets + personalization variant ID",
+      "info": "Variant priced at $17.99."
     }
   ]
 }

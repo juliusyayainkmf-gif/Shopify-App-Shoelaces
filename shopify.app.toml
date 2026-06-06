@@ -1,24 +1,28 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "c208b23548570b27ba03b3330b0aecc2"
-application_url = "https://example.com"
-embedded = true
+client_id = "c11b9919a6efc2d1ae25cf7eeba80859"
 name = "Shoelaces App"
-
-[webhooks]
-api_version = "2026-07"
+application_url = "https://shopify-app-shoelaces.onrender.com"
+embedded = true
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_products,read_publications,write_metaobject_definitions,write_metaobjects,write_products,write_publications"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [
+  "https://shopify-app-shoelaces.onrender.com/auth/callback",
+  "https://shopify-app-shoelaces.onrender.com/auth/shopify/callback",
+  "https://shopify-app-shoelaces.onrender.com/api/auth/callback"
+]
 
-[build]
-automatically_update_urls_on_dev = true
+[webhooks]
+api_version = "2026-07"
 
 [app_proxy]
 url = "/api/uploadPDF"
 subpath = "shoelaces-upload-pdf"
 prefix = "apps"
+
+[build]
+automatically_update_urls_on_dev = true
