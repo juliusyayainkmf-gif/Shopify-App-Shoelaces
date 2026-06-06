@@ -1,9 +1,12 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "54f8e6b854023de59d44cf6c2b6afe5b"
+client_id = "a7dce039436c08b1a3b06ee795185426"
 name = "Shoelaces App"
 application_url = "https://example.com"
 embedded = true
+
+[webhooks]
+api_version = "2026-07"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
@@ -12,13 +15,5 @@ scopes = "read_products,read_publications,write_metaobject_definitions,write_met
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]
 
-[webhooks]
-api_version = "2026-07"
-
 [build]
 automatically_update_urls_on_dev = true
-
-[app_proxy]
-url = "/api/uploadPDF"
-subpath = "shoelaces-upload-pdf"
-prefix = "apps"
