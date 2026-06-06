@@ -1666,7 +1666,7 @@ window.ShoelaceApp = {
 
     return usedIcons
       .filter((icon) => icon.cloudinaryUrl)
-      .map((icon) => [icon.displayName || icon.name, icon.cloudinaryUrl]);
+      .map((icon) => icon.displayName || icon.name);
   },
 
   getCustomEmojiUploadSummary() {
@@ -1674,7 +1674,7 @@ window.ShoelaceApp = {
 
     if (!entries.length) return "N/a";
 
-    return entries.map(([name, url]) => `${name}: ${url}`).join(" | ");
+    return entries.join(" | ");
   },
 
   addCustomEmojiButton(icon) {
@@ -2488,8 +2488,8 @@ window.ShoelaceApp = {
       "Back Text": this.backTextValue || "N/a",
       "Back Text Color": this.getTextColorSummary("back"),
       "Back Emoji Color": this.getEmojiColorSummary("back"),
-      "Personalization Add-on": this.hasPersonalization() ? "+$5.00" : "N/a",
-      "Estimated Total": this.getSelectedPricing().totalLabel,
+      // "Personalization Add-on": this.hasPersonalization() ? "+$5.00" : "N/a",
+      // "Estimated Total": this.getSelectedPricing().totalLabel,
       // _customEmojiUrls: JSON.stringify(
       //   Object.fromEntries(this.getCustomEmojiUploadEntries()),
       // ),
