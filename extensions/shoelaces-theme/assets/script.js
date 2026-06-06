@@ -2479,7 +2479,7 @@ window.ShoelaceApp = {
       "Main Color": this.getMainColorSummary(),
       "Aglet Style": this.getAgletStyleSummary(),
       "Aglet Color": this.getAgletColorSummary(),
-      "Aglets Add-on": this.hasPaidAglets() ? "+$7.99" : "N/a",
+      // "Aglets Add-on": this.hasPaidAglets() ? "+$7.99" : "N/a",
 
       "Front Text": this.frontTextValue || "N/a",
       "Front Text Color": this.getTextColorSummary("front"),
