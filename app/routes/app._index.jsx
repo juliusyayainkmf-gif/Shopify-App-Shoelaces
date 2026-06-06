@@ -404,7 +404,7 @@ async function ensureShoelacePricingVariants(admin, product) {
 
   updatedVariants.forEach((variant) => {
     const pricingVariant = SHOELACE_PRICING_VARIANTS.find((item) => {
-      return item.title === variantOptionValue(variant);
+      return item.title.toLowerCase() === variantOptionValue(variant).toLowerCase();
     });
 
     if (pricingVariant) {
@@ -420,7 +420,7 @@ async function ensureShoelacePricingVariants(admin, product) {
 
   createdVariants.forEach((variant) => {
     const pricingVariant = SHOELACE_PRICING_VARIANTS.find((item) => {
-      return item.title === variantOptionValue(variant);
+      return item.title.toLowerCase() === variantOptionValue(variant).toLowerCase();
     });
 
     if (pricingVariant) {
