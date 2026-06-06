@@ -2372,7 +2372,7 @@ window.ShoelaceApp = {
     if (!SHOELACE_VARIANT_IDS.base) {
       window.showCartStatus(
         "Unable to add item",
-        "Shoelace product variant ID is missing. Please open the app admin once to finish setup.",
+        "Shoelace product variant ID is missing. Open the app admin to finish setup, or enter it in the theme block settings.",
         true,
       );
       return;

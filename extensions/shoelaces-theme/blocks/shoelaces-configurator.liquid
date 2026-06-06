@@ -1206,14 +1206,14 @@
 
 <script>
   window.SHOELACE_CONFIG = {
-    variantId: {{ shop.metafields.shoelaces_configurator.variant_id.value | json }},
+    variantId: {{ block.settings.variant_id | default: shop.metafields.shoelaces_configurator.variant_id.value | json }},
     agletsVariantId: {{ block.settings.aglets_variant_id | default: shop.metafields.shoelaces_configurator.aglets_variant_id.value | json }},
     personalizationVariantId: {{ block.settings.personalization_variant_id | default: shop.metafields.shoelaces_configurator.personalization_variant_id.value | json }},
     agletsPersonalizationVariantId: {{ block.settings.aglets_personalization_variant_id | default: shop.metafields.shoelaces_configurator.aglets_personalization_variant_id.value | json }},
     uploadPdfUrl: {{ '/apps/shoelaces-upload-pdf' | json }},
     uploadEmojiUrl: {{ '/apps/shoelaces-upload-pdf' | json }}
   };
-0  console.log("Shoelaces Config Loaded:", window.SHOELACE_CONFIG);
+  console.log("Shoelaces Config Loaded:", window.SHOELACE_CONFIG);
 </script>
 
 <script src="{{ 'bootstrap.bundle.min.js' | asset_url }}" defer></script>
@@ -1261,6 +1261,12 @@
       "type": "image_picker",
       "id": "help_image",
       "label": "Help modal image"
+    },
+    {
+      "type": "text",
+      "id": "variant_id",
+      "label": "Shoelaces only variant ID",
+      "info": "Required fallback variant priced at $5.00."
     },
     {
       "type": "text",
