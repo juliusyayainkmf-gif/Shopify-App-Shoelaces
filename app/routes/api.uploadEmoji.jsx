@@ -161,10 +161,13 @@ export const action = async ({ request }) => {
   }
 
   try {
-    const { session } = await authenticate.public.appProxy(request);
-
-    if (!session?.shop) {
-      return json({ ok: false, error: "Unauthorized shop." }, { status: 401 });
+    const { session, shop } = await authenticate.public.appProxy(request);
+    
+    // If HMAC is valid but session is missing, it means the offline token is not in the DB
+    if (!session) {
+      const targetShop = shop || new URL(request.url).searchParams.get("shop");
+      console.error(`[AppProxy] No offline session found for shop: ${targetShop}`);
+      return json({ ok: false, error: `Session not found for ${targetShop}. Please re-install the app.` }, { status: 401 });
     }
 
     const formData = await request.formData();
