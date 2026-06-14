@@ -4,7 +4,6 @@ client_id = "6786440f48e28b3ef678126a55d9dbb2"
 name = "Shoelaces App"
 application_url = "https://shopify-app-shoelaces.onrender.com"
 embedded = true
-name = "Shoelaces App"
 
 [webhooks]
 api_version = "2026-07"
