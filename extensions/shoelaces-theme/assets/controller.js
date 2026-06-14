@@ -183,29 +183,32 @@ function updateColorByTarget(button) {
 
   const color = button.dataset.color;
   const colorName = button.dataset.title || button.title || color;
+  const colorDataTarget = button.dataset.target;
+
+  console.log(colorDataTarget);
 
   if (!color) return;
 
-  if (activeColorTarget === "all") {
+  if (colorDataTarget === "all") {
     updateModelColorFromColor(color, colorName);
     updateTextColorFromColor(color, colorName);
     updateEmojiColorFromColor(color, colorName);
     updateAgletColorFromColor(color, colorName);
   }
 
-  if (activeColorTarget === "model") {
+  if (colorDataTarget === "model") {
     updateModelColorFromColor(color, colorName);
   }
 
-  if (activeColorTarget === "text") {
+  if (colorDataTarget === "text") {
     updateTextColorFromColor(color, colorName);
   }
 
-  if (activeColorTarget === "emoji") {
+  if (colorDataTarget === "emoji") {
     updateEmojiColorFromColor(color, colorName);
   }
 
-  if (activeColorTarget === "aglets") {
+  if (colorDataTarget === "aglets") {
     updateAgletColorFromColor(color, colorName);
   }
 }

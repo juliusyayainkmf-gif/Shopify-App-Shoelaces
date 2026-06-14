@@ -1,9 +1,12 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "c11b9919a6efc2d1ae25cf7eeba80859"
-name = "Shoelaces App"
+client_id = "c208b23548570b27ba03b3330b0aecc2"
 application_url = "https://shopify-app-shoelaces.onrender.com"
 embedded = true
+name = "Shoelaces App"
+
+[webhooks]
+api_version = "2024-10"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
@@ -16,13 +19,11 @@ redirect_urls = [
   "https://shopify-app-shoelaces.onrender.com/api/auth/callback"
 ]
 
-[webhooks]
-api_version = "2026-07"
+
+[build]
+automatically_update_urls_on_dev = true
 
 [app_proxy]
 url = "/api/uploadPDF"
 subpath = "shoelaces-upload-pdf"
 prefix = "apps"
-
-[build]
-automatically_update_urls_on_dev = true
