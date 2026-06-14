@@ -1,12 +1,13 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "c208b23548570b27ba03b3330b0aecc2"
+client_id = "6786440f48e28b3ef678126a55d9dbb2"
+name = "Shoelaces App"
 application_url = "https://shopify-app-shoelaces.onrender.com"
 embedded = true
 name = "Shoelaces App"
 
 [webhooks]
-api_version = "2024-10"
+api_version = "2026-07"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
