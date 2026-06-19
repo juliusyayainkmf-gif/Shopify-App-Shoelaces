@@ -1,0 +1,31 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "3be1bb5e15ad32e89f57c97d7cff6b0a"
+name = "KMF Shoelaces"
+application_url = "https://shopify-app-shoelaces.onrender.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[webhooks]
+api_version = "2026-07"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_metaobject_definitions,write_metaobjects,read_products,write_products,read_publications,write_publications"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://shopify-app-shoelaces.onrender.com/auth/callback",
+  "https://shopify-app-shoelaces.onrender.com/auth/shopify/callback",
+  "https://shopify-app-shoelaces.onrender.com/api/auth/callback"
+]
+
+[app_proxy]
+url = "https://shopify-app-shoelaces.onrender.com/api/uploadPDF"
+subpath = "shoelaces-upload-pdf"
+prefix = "apps"
