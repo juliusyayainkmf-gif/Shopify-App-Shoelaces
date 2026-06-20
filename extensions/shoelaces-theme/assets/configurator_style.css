@@ -632,6 +632,7 @@ body {
   border-radius: 8px;
   background: white;
   cursor: pointer;
+  display: flex;
 }
 
 .emoji-btn img {
@@ -927,7 +928,7 @@ div:has(> #loader) {
   padding: 20px 30px !important;
 } 
 
-label.fw-bold {
+label.fw-bold, .aglet-style-btn.option-btn, #viewSideIndicator {
   font-family: Questrial, sans-serif !important;
   font-size: 15.75px !important;
   color: #212529;
