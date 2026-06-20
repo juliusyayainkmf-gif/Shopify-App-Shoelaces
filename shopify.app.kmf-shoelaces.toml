@@ -25,6 +25,6 @@ redirect_urls = [
 ]
 
 [app_proxy]
-url = "https://shopify-app-shoelaces.onrender.com/api/uploadPDF"
+url = "/api/uploadPDF"
 subpath = "shoelaces-upload-pdf"
 prefix = "apps"
