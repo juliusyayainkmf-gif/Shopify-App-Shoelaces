@@ -125,6 +125,51 @@ const getAppFromUrlHmac = (request) => {
   });
 };
 
+const getAppFromAppProxySignature = (request) => {
+  const url = new URL(request.url);
+
+  if (!url.searchParams.get("signature")) return null;
+
+  const baseSearchParams = new URLSearchParams(url.search);
+  if (!baseSearchParams.get("index")) {
+    baseSearchParams.delete("index");
+  }
+
+  const cleanPath = url.pathname
+    .replace(/^\//, "")
+    .replace(/\/$/, "")
+    .replaceAll("/", ".");
+  const data = `routes%2F${cleanPath}`;
+  const appProxySearchParams = [
+    baseSearchParams,
+    new URLSearchParams(
+      `?_data=${data}&${baseSearchParams.toString().replace(/^\?/, "")}`,
+    ),
+    new URLSearchParams(
+      `?_data=${data}._index&${url.search.replace(/^\?/, "")}`,
+    ),
+  ];
+
+  return shopifyApps.find(({ apiSecretKey }) =>
+    appProxySearchParams.some((searchParams) => {
+      const query = Object.fromEntries(searchParams.entries());
+      const { hmac, signature, ...signedQuery } = query;
+
+      if (!signature) return false;
+
+      const message = Object.entries(signedQuery)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .reduce((payload, [key, value]) => `${payload}${key}=${value}`, "");
+      const digest = crypto
+        .createHmac("sha256", apiSecretKey)
+        .update(message)
+        .digest("hex");
+
+      return timingSafeEqual(digest, signature);
+    }),
+  );
+};
+
 const getAppFromJwt = (request) => {
   const authorization = request.headers.get("authorization");
   const token = authorization?.match(/^Bearer (.+)$/i)?.[1];
@@ -181,6 +226,7 @@ const getAppFromWebhookHmac = async (request) => {
 const getAppForRequest = async (request) =>
   getAppFromApiKeyParam(request) ||
   getAppFromUrlHmac(request) ||
+  getAppFromAppProxySignature(request) ||
   getAppFromJwt(request) ||
   (await getAppFromWebhookHmac(request)) ||
   defaultApp;
