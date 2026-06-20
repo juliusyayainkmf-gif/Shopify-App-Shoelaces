@@ -111,7 +111,7 @@ body {
 .option-btn.active,
 .option-btn:hover {
   background: black;
-  color: white;
+  color: white !important;
 }
 
 .color-target-group {
@@ -525,8 +525,8 @@ body {
 }
 
 .form-button:hover {
-  background-color: #111;
-  color: #fff;
+  background-color: #111 !important;
+  color: #fff !important;
   box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
 }
@@ -914,6 +914,14 @@ div:has(> #loader) {
   color: #000 !important;
 }
 
+.accordion-body {
+  padding: 15px 15px !important;
+}
+
+.accordion-button.py-4.px-4 {
+  padding: 15px 15px !important;
+}
+
 .accordion-button h4 {
   font-size: 21px !important;
   font-weight: 700 !important;
@@ -924,12 +932,90 @@ div:has(> #loader) {
   padding: 0 !important;
 }
 
-.accordion-body {
-  padding: 20px 30px !important;
-} 
-
-label.fw-bold, .aglet-style-btn.option-btn, #viewSideIndicator {
+label.fw-bold,
+.aglet-style-btn.option-btn {
   font-family: Questrial, sans-serif !important;
   font-size: 15.75px !important;
-  color: #212529;
+}
+
+#viewSideIndicator {
+  font-size: 11.75px !important;
+}
+
+.estimated-total {
+  font-family: "Archivo", sans-serif !important;
+}
+
+.estimated-total span {
+  font-size: 21px !important;
+  font-weight: 700 !important;
+  font-family: "Archivo", sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#cartStatusTitle, #cartStatusMessage {
+  font-size: 21px !important;
+  font-weight: 700 !important;
+  font-family: "Archivo", sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+div.price p {
+  font-size: 17px !important;
+}
+
+#summaryBtn,
+#addToCart,
+#summaryBackButton {
+  background-color: black !important;
+  color: white !important;
+  letter-spacing: 0.06rem;
+  font-size: 1rem !important;
+}
+
+.preview-title {
+  font-weight: 600;
+  font-size: 1rem;
+  font-family: Questrial, sans-serif;
+  color: #222;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+.white-btn,
+.black-btn {
+  font-size: 17px;
+}
+
+.send-message.mb-4,
+.summary-content h3 {
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  font-family: "Archivo", sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  margin-bottom: 1rem !important;
+}
+
+#ContactForm p,
+.form-button {
+  letter-spacing: 0.06rem;
+  font-size: 1rem !important;
+}
+
+.form-control {
+  font-size: 0.8rem !important;
+}
+
+textarea.form-control {
+  min-height: calc(1.5em + 2.75rem + calc(var(--bs-border-width) * 2));
+  border: 1px solid #cccccc;
+}
+
+.summary-content {
+  font-size: 16px !important;
 }
